@@ -44,6 +44,8 @@ unique(data_1921$DEPARTAMENTO)
 data_1921 <- subset(data_1921, DEPARTAMENTO %in% departamentos_validos)
 unique(data_1921$DEPARTAMENTO)
 
+data_1921 <- data_1921 %>% filter(FECHA >= "2015-01-01")
+
 #merge de las bases de datos
 all_data <- merge(data_1519, data_1921, all = TRUE)
 
