@@ -24,6 +24,7 @@ unique(data_1519$DEPARTAMENTO)
 #Verificando los valores unicos de las demas columnas
 unique(data_1519$SEXO)
 unique(data_1519$CAUSA1)
+data_1519 <- data_1519[,-3]
 
 
 
@@ -45,4 +46,16 @@ unique(data_1921$DEPARTAMENTO)
 
 #merge de las bases de datos
 all_data <- merge(data_1519, data_1921, all = TRUE)
+
+all_data$ID <- seq.int(nrow(all_data))
+all_data <- all_data[,c("ID", names(all_data)[names(all_data) != "ID"])]
+
+all_data[['FECHA']] <- strptime(all_data[['FECHA']], format = "%Y-%m-%d")
+
+#all_data[is.na(all_data)] = "DESCONOCIDA"
+unique(all_data$EDAD)
+unique(all_data$CAUSA1)
+unique(all_data$FECHA)
 all_data
+
+write.csv(all_data,"all_data.csv", row.names = FALSE)
