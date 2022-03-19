@@ -4,6 +4,10 @@ library(maps)
 library(plotly)
 library(hrbrthemes)
 library(rjson)
+library(viridis)
+library(rjson)
+
+
 
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 all_data <- read.csv(file = 'all_data.csv')
@@ -68,3 +72,52 @@ muertes_fecha$n
 fig <- plot_ly(muertes_fecha, x = ~FECHA, y = ~n, type = 'scatter', mode = 'lines')
 fig
 
+#####################Grafica de causas#######################################
+
+unique(all_data$CAUSA1)
+                     
+causas <- all_data
+causas$n <- 1
+causas <- causas %>% group_by(CAUSA1) %>% summarise(n=sum(n))
+
+causas<- head(arrange(causas,desc(n)), n = 10)
+causas
+
+fig <- plot_ly(causas, x = ~n, y = ~CAUSA1, type = 'bar', orientation = 'h')
+fig
+#############################################################################
+#Cambiar los colores de las lineas para que alcance las 10 enfermedades
+#Ignorar desconocida
+
+causas_fecha <- all_data
+causas_fecha$n <- 1
+causas_fecha <- causas_fecha %>% group_by(FECHA, CAUSA1) %>%summarise(n=sum(n))
+causas_fecha <- subset(causas_fecha, CAUSA1 %in% causas$CAUSA1)
+causas_fecha <- causas_fecha %>% filter(FECHA>'2021-05-01')
+
+fig <- plot_ly(causas_fecha, x = ~FECHA, y = ~n, color = ~CAUSA1, 
+               type = 'scatter', mode = 'line') 
+
+fig <- fig %>% add_lines()
+fig
+##############################################################################
+departamentos_geo <- rjson::fromJSON(file='departamentos_gtm.geojson')
+departamentos$features
+
+muertes_departamentos <- all_data
+muertes_departamentos
+
+fig <- plot_ly()
+
+fig <- fig %>% add_trace(
+  type="choropleth",
+  geojson=departamentos,
+  locations=all_data$DEPARTAMENTO,
+  colorscale="Viridis",
+  marker=list(line=list(
+    width=0)
+    
+  )
+  
+)
+fig
