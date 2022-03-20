@@ -5,7 +5,8 @@ library(plotly)
 library(hrbrthemes)
 library(rjson)
 library(viridis)
-library(rjson)
+library(rgdal)
+library(RColorBrewer)
 
 
 
@@ -101,23 +102,42 @@ fig <- plot_ly(causas_fecha, x = ~FECHA, y = ~n, color = ~CAUSA1,
 fig <- fig %>% add_lines()
 fig
 ##############################################################################
-departamentos_geo <- rjson::fromJSON(file='departamentos_gtm.geojson')
-departamentos$features
 
+# departamentos_geo <- rjson::fromJSON(file='departamentos_gtm.geojson')
+# departamentos$features
+# 
+# muertes_departamentos <- all_data
+# muertes_departamentos
+# 
+# fig <- plot_ly()
+# 
+# fig <- fig %>% add_trace(
+#   type="choropleth",
+#   geojson=departamentos,
+#   locations=all_data$DEPARTAMENTO,
+#   colorscale="Viridis",
+#   marker=list(line=list(
+#     width=0)
+#     
+#   )
+#   
+# )
+# fig
+#########################################################################
 muertes_departamentos <- all_data
-muertes_departamentos
+muertes_departamentos$n <- 1
+muertes_departamentos <- muertes_departamentos %>% group_by(DEPARTAMENTO) %>% summarise(n=sum(n))
+muertes_departamentos$DEPARTAMENTO[muertes_departamentos$DEPARTAMENTO == "SOLOLÁ"] ="SOLOLA"
+departamentos_files <- readOGR(dsn="departamentos_gtm", layer = "departamentos_gtm")
+departamentos_files@data$nombre
 
-fig <- plot_ly()
+names (muertes_departamentos)[1] = "nombre"
+newdf <- merge(muertes_departamentos, departamentos_files@data, by = "nombre")
 
-fig <- fig %>% add_trace(
-  type="choropleth",
-  geojson=departamentos,
-  locations=all_data$DEPARTAMENTO,
-  colorscale="Viridis",
-  marker=list(line=list(
-    width=0)
-    
-  )
-  
-)
-fig
+
+
+mycolours <- brewer.pal(8, "Blues")
+mybreaks <- c(0, 1000, 5000, 10000, 50000, 1000000 , 150000)
+cut(newdf$n, mybreaks)
+mycolourscheme <- mycolours[findInterval(newdf$n, vec = mybreaks)]
+plot(newdf, col = mycolourscheme, main = "Percentage Vote Share for Bush - 2004", cex = 5)
