@@ -1,5 +1,5 @@
 #Importacion de las librerias necesarias
-library("readxl")
+library(readxl)
 library(dplyr)
 library(stringr)
 
@@ -83,6 +83,18 @@ all_data$CAUSA2[is.na(all_data$CAUSA2)] = "DESCONOCIDA"
 all_data$CAUSA3[is.na(all_data$CAUSA3)] = "DESCONOCIDA"
 all_data$CAUSA4[is.na(all_data$CAUSA4)] = "DESCONOCIDA"
 all_data$EDAD[is.na(all_data$EDAD)] = "DESCONOCIDA"
+
+all_data$CAUSA1[all_data$CAUSA1=='Paro Cardio Respiratorio'] = "Paro Cardiorrespiratorio"
+all_data$CAUSA1[all_data$CAUSA1=='Paro Cardiorespiratorio'] = "Paro Cardiorrespiratorio"
+#Segun la literatura consultado un paro cardiaco y un paro cardiorrespiratorio son lo mismo
+all_data$CAUSA1[all_data$CAUSA1=='Paro Cardiaco'] = "Paro Cardiorrespiratorio"
+all_data$CAUSA1[all_data$CAUSA1=='Infarto Agudo del Miocardio'] = "Infarto Agudo al Miocardio"
+all_data$CAUSA1[all_data$CAUSA1=='Neumonua'] = "Neumonía"
+all_data$CAUSA1[all_data$CAUSA1=='Neumonia'] = "Neumonía"
+all_data$CAUSA1[all_data$CAUSA1=='Choque Septico'] = "Choque Séptico"
+all_data$CAUSA1[all_data$CAUSA1=='Choque Suptico'] = "Choque Séptico"
+
+
 #all_data$CAUSA2<- str_replace_all(all_data$CAUSA2, "^-", "DESCONOCIDA")
 #all_data$CAUSA3<- str_replace_all(all_data$CAUSA3, "^-", "DESCONOCIDA")
 #all_data$CAUSA4<- str_replace_all(all_data$CAUSA4, "^-", "DESCONOCIDA")

@@ -6,11 +6,12 @@ library(hrbrthemes)
 library(rjson)
 library(viridis)
 library(rgdal)
+library(leaflet)
 library(RColorBrewer)
 
-
-
+#Colocar el directorio de trabajo
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+#Cargar el archivo donde se encuentran los datos unificados
 all_data <- read.csv(file = 'all_data.csv')
 Sys.setlocale(locale = "es_ES.UTF-8")
 
@@ -43,12 +44,13 @@ grupos_etarios$grupo_edad <- factor(grupos_etarios$grupo_edad, levels =
 
 mujeres <- grupos_etarios%>% filter(SEXO=="F")
 hombres <- grupos_etarios%>% filter(SEXO=="M")
-mujeres$n
+desconocidos <- grupos_etarios%>% filter(SEXO=="DESCONOCIDO")
+colors_grapo <- c('#348AA7', '#525174', '#5DD39E','#BCE784')
 
-
-fig <- plot_ly(grupos_etarios, x = ~grupo_edad, y= ~n, type = 'bar', name = "TOTAL")%>%
-  add_trace(mujeres,x = mujeres$grupo_edad, y = mujeres$n,  name = "femenino", color = "#EB5160") %>%
-  add_trace(hombres,x = hombres$grupo_edad, y = hombres$n, name = "masculino", color = "#16a085") %>%
+fig <- plot_ly(grupos_etarios, x = ~grupo_edad, y= ~n, type = 'bar', name = "Total",marker=list(color ='#348AA7') )%>%
+  add_trace(mujeres,x = mujeres$grupo_edad, y = mujeres$n,  name = "Femenino", marker=list(color ='#525174')) %>%
+  add_trace(hombres,x = hombres$grupo_edad, y = hombres$n, name = "Masculino", marker=list(color ='#5DD39E')) %>%
+  add_trace(desconocidos,x = desconocidos$grupo_edad, y = desconocidos$n, name = "Desconocido", marker=list(color ='#BCE784')) %>%
   layout(xaxis = list(title = 'Grupos etarios'),
          yaxis = list(title = 'Cantidad de muertes'),
          barmode = 'group',
@@ -60,84 +62,136 @@ fig <- plot_ly(grupos_etarios, x = ~grupo_edad, y= ~n, type = 'bar', name = "TOT
          yaxis = list(
            zerolinecolor = '#ffff',
            zerolinewidth = 2,
-           gridcolor = 'ffff'))
+           gridcolor = 'ffff'),
+         title ="Mortalidad por grupo etario y sexo")
 fig
 
 
 #####################Grafica de muertes por fecha#############################
 
 muertes_fecha <- all_data %>% count(FECHA)
-muertes_fecha$FECHA
-muertes_fecha$n
-
-fig <- plot_ly(muertes_fecha, x = ~FECHA, y = ~n, type = 'scatter', mode = 'lines')
+fig <- plot_ly(muertes_fecha, x = ~FECHA, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6')
+fig <- config(fig, displaylogo = FALSE)
 fig
 
-#####################Grafica de causas#######################################
+#####################Gráfica de causas#######################################
 
 unique(all_data$CAUSA1)
                      
 causas <- all_data
 causas$n <- 1
 causas <- causas %>% group_by(CAUSA1) %>% summarise(n=sum(n))
+causas <- subset(causas) %>% filter(CAUSA1!="DESCONOCIDA")
 
-causas<- head(arrange(causas,desc(n)), n = 10)
-causas
+causas <- head(arrange(causas,desc(n)), n = 10)
+names (causas)[1] = "Causas"
 
-fig <- plot_ly(causas, x = ~n, y = ~CAUSA1, type = 'bar', orientation = 'h')
+
+fig <- plot_ly(causas, x = ~n, y = ~Causas, type = 'bar', orientation = 'h', marker=list(color ='#FE6D73'))
+  config(fig, displaylogo = FALSE)%>%
+  layout(xaxis = list(title = 'Cantidad de muertes'),
+         yaxis = list(title = 'Causas de muerte'),
+         title ="Causas más frecuentes de mortalidad")
 fig
-#############################################################################
-#Cambiar los colores de las lineas para que alcance las 10 enfermedades
-#Ignorar desconocida
+
+##tabla
+
+fig <- plot_ly(type = 'table', header = list(values = c("No.","Causa", "Cantidad de muertes"), align = c('left', rep('center', ncol(causas))),
+    line = list(width = 1, color = 'black'),
+    fill = list(color = 'rgb(235, 100, 230)'),
+    font = list(family = "Arial", size = 14, color = "white")),
+  cells = list(
+    values = rbind(
+      rownames(causas), 
+      t(as.matrix(unname(causas)))),
+    align = c('left', rep('center', ncol(causas))),
+    line = list(color = "black", width = 1),
+    fill = list(color = c('rgb(235, 193, 238)', 'rgba(228, 222, 249, 0.65)')),
+    font = list(family = "Arial", size = 12, color = c("black"))
+  ))
+
+fig
+
+#############Gráfica de causas de mortalidad a lo largo del tiempo ##############
 
 causas_fecha <- all_data
 causas_fecha$n <- 1
-causas_fecha <- causas_fecha %>% group_by(FECHA, CAUSA1) %>%summarise(n=sum(n))
+causas_fecha <- causas_fecha %>% group_by(CAUSA1, FECHA) %>%summarise(n=sum(n))
 causas_fecha <- subset(causas_fecha, CAUSA1 %in% causas$CAUSA1)
 causas_fecha <- causas_fecha %>% filter(FECHA>'2021-05-01')
 
-fig <- plot_ly(causas_fecha, x = ~FECHA, y = ~n, color = ~CAUSA1, 
-               type = 'scatter', mode = 'line') 
-
-fig <- fig %>% add_lines()
+fig <- plot_ly(causas_fecha, x = ~FECHA, y = ~n, color = ~CAUSA1, type = 'scatter', mode = 'line', colors = "Set2") 
+       config(fig, displaylogo = FALSE)%>%
+       layout(xaxis = list(title = 'Fecha'),
+              yaxis = list(title = 'Cantidad de muertes'),
+              legend = list(title=list(text='<b> Causas de muerte </b>')),
+              title = 'Evolución de mortalidad por causa de muerte')
 fig
-##############################################################################
 
-# departamentos_geo <- rjson::fromJSON(file='departamentos_gtm.geojson')
-# departamentos$features
-# 
-# muertes_departamentos <- all_data
-# muertes_departamentos
-# 
-# fig <- plot_ly()
-# 
-# fig <- fig %>% add_trace(
-#   type="choropleth",
-#   geojson=departamentos,
-#   locations=all_data$DEPARTAMENTO,
-#   colorscale="Viridis",
-#   marker=list(line=list(
-#     width=0)
-#     
-#   )
-#   
-# )
-# fig
-#########################################################################
+####################Gráfica de registros por departamento########################
+
 muertes_departamentos <- all_data
 muertes_departamentos$n <- 1
 muertes_departamentos <- muertes_departamentos %>% group_by(DEPARTAMENTO) %>% summarise(n=sum(n))
 muertes_departamentos$DEPARTAMENTO[muertes_departamentos$DEPARTAMENTO == "SOLOLÁ"] ="SOLOLA"
 departamentos_files <- readOGR(dsn="departamentos_gtm", layer = "departamentos_gtm")
-departamentos_files@data$nombre
+departamentos_files@polygons[1]
 
 names (muertes_departamentos)[1] = "nombre"
 newdf <- merge(muertes_departamentos, departamentos_files@data, by = "nombre")
 
+project4string(GUATEMALA)
+
+bins <- c(0, 1000, 5000, 10000, 50000, 1000000 , 150000, Inf)
+pal <- colorBin("YlOrRd", domain = newdf$n, bins = bins)
 
 
-mycolours <- brewer.pal(8, "Blues")
-mybreaks <- c(0, 1000, 5000, 10000, 50000, 1000000 , 150000)
+
+m <- leaflet()%>% 
+  addTiles() %>%
+  addPolygons(
+    data = departamentos_files,  # LAD polygon data from geojson
+    weight = 1,  # line thickness
+    opacity = 1,  # line transparency
+    color = "black",  # line colour
+    fillOpacity = ifelse(  # conditional fill opacity
+      test = departamentos_files@data$area > 1E+09,  # if area is over this value
+      yes = 0.5,  # then make it half-opaque
+      no = 0  # otherwise make it entirely transparent
+    ),
+    fillColor = "red",
+    label = ~nombre  # LAD name as a hover label
+  )
+m
+
+
+leaflet(departamentos_files) %>%
+  setView(-94, 39, 5) %>%
+  addProviderTiles("MapBox", options = providerTileOptions(
+    id = "mapbox.light",
+    accessToken = Sys.getenv('MAPBOX_ACCESS_TOKEN'))) %>%
+  addPolygons(
+    fillColor = ~pal(n),
+    weight = 1,
+    opacity = 1,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlight = highlightOptions(
+      weight = 5,
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labels,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto")) %>%
+  addLegend(pal = pal, values = ~n, opacity = 0.7, title = NULL,
+            position = "bottomright")
+
+
 cut(newdf$n, mybreaks)
 mycolourscheme <- mycolours[findInterval(newdf$n, vec = mybreaks)]
 plot(newdf, col = mycolourscheme, main = "Percentage Vote Share for Bush - 2004", cex = 5)
