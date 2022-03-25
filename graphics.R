@@ -7,7 +7,10 @@ library(rjson)
 library(viridis)
 library(rgdal)
 library(leaflet)
+library(sf)
 library(RColorBrewer)
+library(lubridate)
+library(stringr)
 
 #Colocar el directorio de trabajo
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
@@ -69,9 +72,21 @@ fig
 
 #####################Grafica de muertes por fecha#############################
 
-muertes_fecha <- all_data %>% count(FECHA)
-fig <- plot_ly(muertes_fecha, x = ~FECHA, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6')
-fig <- config(fig, displaylogo = FALSE)
+muertes_fecha <- all_data
+#obteniendo las semanas epidemiologicas
+muertes_fecha$epiWeek <- epiweek(muertes_fecha$FECHA)
+muertes_fecha$year <- year(muertes_fecha$FECHA)
+muertes_fecha$fullDate <- str_c(muertes_fecha$year,"-",muertes_fecha$epiWeek)
+muertes_fecha$n <- 1
+muertes_fecha <- muertes_fecha %>% group_by(fullDate) %>% summarise(n=sum(n))
+
+#muertes_fecha <- muertes_fecha %>% arrange(muertes_fecha$year, muertes_fecha$epiWeek)
+#muertes_fecha <- muertes_fecha[order(muertes_fecha$year),]
+
+fig <- plot_ly(muertes_fecha, x = ~fullDate, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
+       config(displaylogo = FALSE) %>%
+       layout(xaxis= list(title = "Semana epidemiológica"),
+              yaxis= list(title = "Cantidad de muertes"))
 fig
 
 #####################Gráfica de causas#######################################
@@ -87,11 +102,11 @@ causas <- head(arrange(causas,desc(n)), n = 10)
 names (causas)[1] = "Causas"
 
 
-fig <- plot_ly(causas, x = ~n, y = ~Causas, type = 'bar', orientation = 'h', marker=list(color ='#FE6D73'))
-  config(fig, displaylogo = FALSE)%>%
-  layout(xaxis = list(title = 'Cantidad de muertes'),
-         yaxis = list(title = 'Causas de muerte'),
-         title ="Causas más frecuentes de mortalidad")
+fig <- plot_ly(causas, x = ~n, y = ~Causas, type = 'bar', orientation = 'h', marker=list(color ='#FE6D73')) %>%
+              config(displaylogo = FALSE)%>%
+              layout(xaxis = list(title = 'Cantidad de muertes'),
+                     yaxis = list(title = 'Causas de muerte'),
+                     title ="Causas más frecuentes de mortalidad")
 fig
 
 ##tabla
@@ -134,38 +149,19 @@ muertes_departamentos <- all_data
 muertes_departamentos$n <- 1
 muertes_departamentos <- muertes_departamentos %>% group_by(DEPARTAMENTO) %>% summarise(n=sum(n))
 muertes_departamentos$DEPARTAMENTO[muertes_departamentos$DEPARTAMENTO == "SOLOLÁ"] ="SOLOLA"
-departamentos_files <- readOGR(dsn="departamentos_gtm", layer = "departamentos_gtm")
-departamentos_files@polygons[1]
+departamentos_locacion <- st_read("departamentos_gtm",layer="departamentos_gtm")
+departamentos_locacion  <- st_transform(departamentos_locacion, "+proj=longlat +datum=WGS84")
+departamentos_locacion$nombre <- as.character(departamentos_locacion$nombre)
 
 names (muertes_departamentos)[1] = "nombre"
-newdf <- merge(muertes_departamentos, departamentos_files@data, by = "nombre")
+mortalidad_dep<- merge(muertes_departamentos, departamentos_locacion, by = "nombre")
+mortalidad_dep$nombre <- as.character(mortalidad_dep$nombre)
+mortalidad_dep <- st_as_sf(mortalidad_dep)
 
-project4string(GUATEMALA)
+pal <- colorNumeric( colorRampPalette(brewer.pal(9,"Reds"))(5),
+       domain = c(0,max(newdf$n)))
 
-bins <- c(0, 1000, 5000, 10000, 50000, 1000000 , 150000, Inf)
-pal <- colorBin("YlOrRd", domain = newdf$n, bins = bins)
-
-
-
-m <- leaflet()%>% 
-  addTiles() %>%
-  addPolygons(
-    data = departamentos_files,  # LAD polygon data from geojson
-    weight = 1,  # line thickness
-    opacity = 1,  # line transparency
-    color = "black",  # line colour
-    fillOpacity = ifelse(  # conditional fill opacity
-      test = departamentos_files@data$area > 1E+09,  # if area is over this value
-      yes = 0.5,  # then make it half-opaque
-      no = 0  # otherwise make it entirely transparent
-    ),
-    fillColor = "red",
-    label = ~nombre  # LAD name as a hover label
-  )
-m
-
-
-leaflet(departamentos_files) %>%
+m <-leaflet(mortalidad_dep) %>%
   setView(-94, 39, 5) %>%
   addProviderTiles("MapBox", options = providerTileOptions(
     id = "mapbox.light",
@@ -174,7 +170,7 @@ leaflet(departamentos_files) %>%
     fillColor = ~pal(n),
     weight = 1,
     opacity = 1,
-    color = "white",
+    color = "white", #linea contorno
     dashArray = "3",
     fillOpacity = 0.7,
     highlight = highlightOptions(
@@ -183,15 +179,15 @@ leaflet(departamentos_files) %>%
       dashArray = "",
       fillOpacity = 0.7,
       bringToFront = TRUE),
-    label = labels,
-    labelOptions = labelOptions(
-      style = list("font-weight" = "normal", padding = "3px 8px"),
-      textsize = "15px",
-      direction = "auto")) %>%
-  addLegend(pal = pal, values = ~n, opacity = 0.7, title = NULL,
-            position = "bottomright")
+    #label = labels,
+    # labelOptions = labelOptions(
+    #   style = list("font-weight" = "normal", padding = "3px 8px"),
+    #   textsize = "15px",
+    #   direction = "auto")
+    ) %>%
+    addLegend(pal = pal, values = ~n, opacity = 0.7, title = NULL,# titulo leyenda
+            position = "bottomright", group = "Departamentos")%>% 
+    setView(lat=14.628434,lng=-90.522713, zoom = 7)
+m
 
 
-cut(newdf$n, mybreaks)
-mycolourscheme <- mycolours[findInterval(newdf$n, vec = mybreaks)]
-plot(newdf, col = mycolourscheme, main = "Percentage Vote Share for Bush - 2004", cex = 5)
