@@ -129,10 +129,10 @@ ui <- fluidPage( includeCSS("styles.css"),
       tabPanel("Categorías", 
                mainPanel(
                  fluidRow(
-                   column(width=12,plotlyOutput(outputId = "mortalidad_edad"))
+                   column(width=12,offset = 4,plotlyOutput(outputId = "mortalidad_edad"))
                  ),
                  fluidRow(
-                   column(width=12,plotlyOutput(outputId = "mortalidad_causas"))
+                   column(width=12,offset = 4,plotlyOutput(outputId = "mortalidad_causas"))
                  )
                )
                
@@ -142,7 +142,7 @@ ui <- fluidPage( includeCSS("styles.css"),
                  mainPanel(
                     h2("Mortalidad por departamentos"),
                     fluidRow(
-                      column(width = 12,leafletOutput(outputId = "mortalidad_mapa"))
+                      column(width = 12,offset = 4,leafletOutput(outputId = "mortalidad_mapa"))
                     )
                     
                  )
