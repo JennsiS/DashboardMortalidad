@@ -6,6 +6,7 @@ library(hrbrthemes)
 library(rjson)
 library(viridis)
 library(rgdal)
+library(DT)
 library(leaflet)
 library(sf)
 library(RColorBrewer)
@@ -87,7 +88,12 @@ mortalidad_dep$nombre <- as.character(mortalidad_dep$nombre)
 mortalidad_dep <- st_as_sf(mortalidad_dep)
 
 pal <- colorNumeric( colorRampPalette(brewer.pal(9,"Reds"))(5),
-                     domain = c(0,max(newdf$n)))
+                     domain = c(0,max(mortalidad_dep$n)))
+
+dep_labels <-sprintf(
+  "<strong>%s</strong><br/>Cantidad de muertes: %g",
+  muertes_departamentos$nombre, muertes_departamentos$n
+) %>% lapply(htmltools::HTML) 
 
 #Agrupación por causas de muerte más comunes
 causas <- all_data
@@ -100,37 +106,53 @@ names (causas)[1] = "Causas"
 
 ####################################UI#########################################
 
-ui <- #fluidPage(theme = shinythemes::shinytheme("united"),
+ui <- fluidPage( includeCSS("styles.css"),
+      # tags$head(
+      #   tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")
+      # ),
       navbarPage(
-      #theme = "cerulean",  # <--- To use a theme, uncomment this
-        "Dashboard de mortalidad",
+      "Dashboard de mortalidad", id ="navbarTop",
       tabPanel("Fechas",
-                mainPanel(
-                          h1("Mortalidad por fecha"),
-                          plotlyOutput(outputId = "mortalidad_fecha"),
-                          h1("Mortalidad por causas de muerte"),
-                          plotlyOutput(outputId = "mortalidad_causas_fecha")
-                          
-                ) # mainPanel
-                           
+                          h2("Mortalidad por fecha"),
+                          fluidRow(
+                            column (width=12,
+                              plotlyOutput(outputId = "mortalidad_fecha")
+                            )
+                          ),
+                          h2("Mortalidad por causas de muerte"),
+                          fluidRow(
+                            column (width=12,
+                          plotlyOutput(outputId = "mortalidad_causas_fecha"))
+                          )
+
        ), # Navbar 1, tabPanel
       tabPanel("Categorías", 
                mainPanel(
-                 plotlyOutput(outputId = "mortalidad_edad"),
-                 plotlyOutput(outputId = "mortalidad_causas")
+                 fluidRow(
+                   column(width=12,plotlyOutput(outputId = "mortalidad_edad"))
+                 ),
+                 fluidRow(
+                   column(width=12,plotlyOutput(outputId = "mortalidad_causas"))
+                 )
                )
                
         
       ),
       tabPanel("Localización", 
                  mainPanel(
-                  leafletOutput(outputId = "mortalidad_mapa")  
+                    h2("Mortalidad por departamentos"),
+                    fluidRow(
+                      column(width = 12,leafletOutput(outputId = "mortalidad_mapa"))
+                    )
+                    
                  )
       ),
-      tabPanel("Datos","Aqui colocar una tabla con los datos")
+      tabPanel("Datos",
+               downloadButton('Descargar',"Descargar datos"),
+               dataTableOutput("dataTable"))
       
       ) # navbarPage
-#) # fluidPage
+) # fluidPage
 
 
 ##################################SERVER#########################################  
@@ -150,8 +172,7 @@ server <- function(input, output) {
     config(displaylogo = FALSE)%>%
       layout(xaxis = list(title = 'Fecha'),
              yaxis = list(title = 'Cantidad de muertes'),
-             legend = list(title=list(text='<b> Causas de muerte </b>')),
-             title = "Evolucion de mortalidad por causa de muerte")
+             legend = list(title=list(text='<b> Causas de muerte </b>')))
   })
   
  
@@ -194,15 +215,16 @@ server <- function(input, output) {
           dashArray = "",
           fillOpacity = 0.7,
           bringToFront = TRUE),
-        #label = labels,
-        # labelOptions = labelOptions(
-        #   style = list("font-weight" = "normal", padding = "3px 8px"),
-        #   textsize = "15px",
-        #   direction = "auto")
+        label = dep_labels,
+        labelOptions = labelOptions(
+          style = list("font-weight" = "normal", padding = "3px 8px"),
+          textsize = "15px",
+          direction = "auto")
       ) %>%
-      addLegend(pal = pal, values = ~n, opacity = 0.7, title = NULL,# titulo leyenda
+      addLegend(pal = pal, values = ~n, opacity = 0.7, title = "Cantidad de muertes",# titulo leyenda
                 position = "bottomright", group = "Departamentos")%>% 
-      setView(lat=14.628434,lng=-90.522713, zoom = 7)
+      setView(lat=16,lng=-90.522713, zoom = 7) %>% 
+      addProviderTiles(providers$CartoDB.Positron)
     
   })
   
@@ -213,6 +235,19 @@ server <- function(input, output) {
              yaxis = list(title = 'Causas de muerte'),
              title ="Causas más frecuentes de mortalidad")
   })
+  
+  output$dataTable <- renderDataTable({
+    datatable(all_data)
+  })
+  
+  output$Descargar <- downloadHandler(
+    filename = function() {
+      paste("datos_mortalidad-", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+      write.csv(all_data, file)
+    }
+  )
   
   
 } # server
