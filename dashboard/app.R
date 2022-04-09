@@ -12,6 +12,8 @@ library(sf)
 library(RColorBrewer)
 library(lubridate)
 library(stringr)
+library(shinydashboard)
+library(shinydashboardPlus)
 
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 all_data <- read.csv(file = 'all_data.csv')
@@ -106,53 +108,58 @@ names (causas)[1] = "Causas"
 
 ####################################UI#########################################
 
-ui <- fluidPage( includeCSS("styles.css"),
-      # tags$head(
-      #   tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")
-      # ),
-      navbarPage(
-      "Dashboard de mortalidad", id ="navbarTop",
-      tabPanel("Fechas",
-                          h2("Mortalidad por fecha"),
-                          fluidRow(
-                            column (width=12,
-                              plotlyOutput(outputId = "mortalidad_fecha")
-                            )
-                          ),
-                          h2("Mortalidad por causas de muerte"),
-                          fluidRow(
-                            column (width=12,
-                          plotlyOutput(outputId = "mortalidad_causas_fecha"))
-                          )
-
-       ), # Navbar 1, tabPanel
-      tabPanel("Categorías", 
-               mainPanel(
-                 fluidRow(
-                   column(width=12,offset = 4,plotlyOutput(outputId = "mortalidad_edad"))
-                 ),
-                 fluidRow(
-                   column(width=12,offset = 4,plotlyOutput(outputId = "mortalidad_causas"))
-                 )
-               )
-               
-        
+ui <- dashboardPage( #includeCSS("styles.css"),
+      dashboardHeader(title = "Tablero mortalidad Guatemala"),
+      dashboardSidebar(
+        sidebarMenu(
+          menuItem("Fechas", tabName = "fechas"),
+          menuItem("Categorias", tabName = "categorias"),
+          menuItem("Localizacion", tabName = "localizacion"),
+          menuItem("Datos", tabName = "datos")
+        )
       ),
-      tabPanel("Localización", 
-                 mainPanel(
-                    h2("Mortalidad por departamentos"),
-                    fluidRow(
-                      column(width = 12,offset = 4,leafletOutput(outputId = "mortalidad_mapa"))
+      dashboardBody(
+        tabItems(
+          tabItem("fechas",  
+                  h2("Mortalidad por fecha"),
+                  fluidRow(
+                    column (width=12,
+                            plotlyOutput(outputId = "mortalidad_fecha")
                     )
-                    
-                 )
-      ),
-      tabPanel("Datos",
-               downloadButton('Descargar',"Descargar datos"),
-               dataTableOutput("dataTable"))
-      
-      ) # navbarPage
-) # fluidPage
+                  ),
+                  h2("Mortalidad por causas de muerte"),
+                  fluidRow(
+                    column (width=12,
+                            plotlyOutput(outputId = "mortalidad_causas_fecha"))
+                  )
+          ),
+          tabItem("categorias",
+                    mainPanel(
+                      fluidRow(
+                        column(width=12,offset = 4,plotlyOutput(outputId = "mortalidad_edad"))
+                      ),
+                      fluidRow(
+                        column(width=12,offset = 4,plotlyOutput(outputId = "mortalidad_causas"))
+                      )
+                    )
+                  ),
+          tabItem("localizacion",
+                    mainPanel(
+                      h2("Mortalidad por departamentos"),
+                      fluidRow(
+                        column(width = 12,offset = 4,leafletOutput(outputId = "mortalidad_mapa"))
+                      )
+                      
+                    )
+                  ),
+          tabItem("datos",
+                  downloadButton('Descargar',"Descargar datos"),
+                  dataTableOutput("dataTable")
+                  )
+          )
+        ) # body
+      ) #dashboard page
+
 
 
 ##################################SERVER#########################################  
