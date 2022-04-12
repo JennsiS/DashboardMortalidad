@@ -41,7 +41,12 @@ causas_fecha <- all_data
 causas_fecha$n <- 1
 causas_fecha <- causas_fecha %>% group_by(CAUSA1, FECHA) %>%summarise(n=sum(n))
 causas_fecha <- subset(causas_fecha, CAUSA1 %in% causas$Causas)
-causas_fecha <- causas_fecha %>% filter(FECHA>'2021-05-01')
+causas_fecha$epiweek <- epiweek(causas_fecha$FECHA)
+causas_fecha$year <- year(causas_fecha$FECHA)
+causas_fecha$fullDate <- str_c(causas_fecha$year,"-",causas_fecha$epiweek)
+causas_fecha <-causas_fecha %>% group_by(fullDate, CAUSA1) %>% summarise(n=sum(n))
+
+
 
 #Agrupacion por grupo etario y sexo 
 grupos_etarios <- all_data %>%
@@ -69,9 +74,10 @@ grupos_etarios$grupo_edad <- factor(grupos_etarios$grupo_edad, levels =
                                         "70-79", "80-89", "90-99", "100-109", "110-119", "120+", "DESCONOCIDA"))
 
 
+grupos_etarios <- subset(grupos_etarios) %>% filter(grupo_edad!="DESCONOCIDA")
 mujeres <- grupos_etarios%>% filter(SEXO=="F")
 hombres <- grupos_etarios%>% filter(SEXO=="M")
-desconocidos <- grupos_etarios%>% filter(SEXO=="DESCONOCIDO")
+#desconocidos <- grupos_etarios%>% filter(SEXO=="DESCONOCIDO")
 colors_grapo <- c('#348AA7', '#525174', '#5DD39E','#BCE784')
 
 #Agrupacion por departamento
@@ -106,9 +112,13 @@ causas <- subset(causas) %>% filter(CAUSA1!="DESCONOCIDA")
 causas <- head(arrange(causas,desc(n)), n = 10)
 names (causas)[1] = "Causas"
 
+#Datos
+data_table <- all_data
+data_table <- subset(data_table, select=-ID)
+
 ####################################UI#########################################
 
-ui <- dashboardPage( #includeCSS("styles.css"),
+ui <- dashboardPage(
       dashboardHeader(title = "Tablero mortalidad Guatemala"),
       dashboardSidebar(
         sidebarMenu(
@@ -119,6 +129,9 @@ ui <- dashboardPage( #includeCSS("styles.css"),
         )
       ),
       dashboardBody(
+        tags$head(
+          tags$link(rel = "stylesheet", type = "text/css", href = "customStyles.css")
+        ),
         tabItems(
           tabItem("fechas",  
                   h2("Mortalidad por fecha"),
@@ -175,7 +188,7 @@ server <- function(input, output) {
   })
   
   output$mortalidad_causas_fecha <- renderPlotly({
-    plot_ly(causas_fecha, x = ~FECHA, y = ~n, color = ~CAUSA1, type = 'scatter', mode = 'line', colors = "Set2") %>% 
+    plot_ly(causas_fecha, x = ~fullDate, y = ~n, color = ~CAUSA1, type = 'scatter', mode = 'line', colors = "Set2") %>% 
     config(displaylogo = FALSE)%>%
       layout(xaxis = list(title = 'Fecha'),
              yaxis = list(title = 'Cantidad de muertes'),
@@ -184,13 +197,11 @@ server <- function(input, output) {
   
  
   output$mortalidad_edad <- renderPlotly({
-    plot_ly(grupos_etarios, x = ~grupo_edad, y= ~n, type = 'bar', name = "Total",marker=list(color ='#348AA7') )%>%
-      add_trace(mujeres,x = mujeres$grupo_edad, y = mujeres$n,  name = "Femenino", marker=list(color ='#525174')) %>%
-      add_trace(hombres,x = hombres$grupo_edad, y = hombres$n, name = "Masculino", marker=list(color ='#5DD39E')) %>%
-      add_trace(desconocidos,x = desconocidos$grupo_edad, y = desconocidos$n, name = "Desconocido", marker=list(color ='#BCE784')) %>%
+    plot_ly(mujeres, x = mujeres$grupo_edad, y= ~n, type = 'bar', name = "Femenino", marker=list(color ='#FFAAA7'))%>%
+      add_trace(hombres,x = hombres$grupo_edad, y = hombres$n, name = "Masculino", marker=list(color ='#98DDCA')) %>%
       layout(xaxis = list(title = 'Grupos etarios'),
              yaxis = list(title = 'Cantidad de muertes'),
-             barmode = 'group',
+             barmode = 'stack',
              plot_bgcolor='#e5ecf6',
              xaxis = list(
                zerolinecolor = '#ffff',
@@ -244,7 +255,7 @@ server <- function(input, output) {
   })
   
   output$dataTable <- renderDataTable({
-    datatable(all_data)
+    datatable(data_table)
   })
   
   output$Descargar <- downloadHandler(
