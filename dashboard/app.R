@@ -12,6 +12,7 @@ library(sf)
 library(RColorBrewer)
 library(lubridate)
 library(stringr)
+library(writexl)
 library(shinydashboard)
 library(shinydashboardPlus)
 library(readxl)
@@ -29,6 +30,8 @@ muertes_fecha$year <- year(muertes_fecha$FECHA)
 muertes_fecha$fullDate <- str_c(muertes_fecha$year,"-",muertes_fecha$epiWeek)
 muertes_fecha$n <- 1
 muertes_fecha <- muertes_fecha %>% group_by(fullDate) %>% summarise(n=sum(n))
+names (muertes_fecha)[1] = "Semana_epidemiologica"
+muertes_fecha$año <- sub("\\-.*", "", muertes_fecha$Semana_epidemiologica)
 
 #Agrupacion de causas de muerte
 causas <- all_data
@@ -47,6 +50,8 @@ causas_fecha$epiweek <- epiweek(causas_fecha$FECHA)
 causas_fecha$year <- year(causas_fecha$FECHA)
 causas_fecha$fullDate <- str_c(causas_fecha$year,"-",causas_fecha$epiweek)
 causas_fecha <-causas_fecha %>% group_by(fullDate, CAUSA1) %>% summarise(n=sum(n))
+names (causas_fecha)[1] = "Semana_epidemiologica"
+names (causas_fecha)[2] = "Causa_1"
 
 
 
@@ -79,6 +84,13 @@ grupos_etarios$GRUPO_ETARIO <- factor(grupos_etarios$GRUPO_ETARIO, levels =
 grupos_etarios <- subset(grupos_etarios) %>% filter(GRUPO_ETARIO!="DESCONOCIDA")
 mujeres <- grupos_etarios%>% filter(SEXO=="F")
 hombres <- grupos_etarios%>% filter(SEXO=="M")
+names(grupos_etarios)[1] = "Grupo_etario"
+names(grupos_etarios)[2] = "Sexo"
+names (mujeres)[1] = "Grupo_etario"
+names (mujeres)[2] = "Sexo"
+names (hombres)[1] = "Grupo_etario"
+names (hombres)[2] = "Sexo"
+
 #desconocidos <- grupos_etarios%>% filter(SEXO=="DESCONOCIDO")
 colors_grapo <- c('#348AA7', '#525174', '#5DD39E','#BCE784')
 
@@ -131,7 +143,26 @@ ui <- dashboardPage(
           menuItem("Fechas", tabName = "fechas"),
           menuItem("Categorías", tabName = "categorias"),
           menuItem("Localización", tabName = "localizacion"),
-          menuItem("Datos", tabName = "datos")
+          menuItem("Datos", tabName = "datos"),
+          menuItem(
+            checkboxGroupInput("years", "Años seleccionados:",
+                               c("2015" = "2015",
+                                 "2016" = "2016",
+                                 "2017" = "2017",
+                                 "2018" = "2018",
+                                 "2019" = "2019",
+                                 "2020" = "2020",
+                                 "2021" = "2021"
+                                 ),
+                               selected =  c("2015",
+                                             "2016",
+                                             "2017",
+                                             "2018",
+                                             "2019",
+                                             "2020",
+                                             "2021"
+                               ))
+          )
         )
       ),
       dashboardBody(
@@ -166,19 +197,6 @@ ui <- dashboardPage(
                            )
                     )
                   )
-                  
-                  # h2("Mortalidad por fecha"),
-                  # fluidRow(
-                  #   column (width=12,
-                  #           plotlyOutput(outputId = "mortalidad_fecha")
-                  #   )
-                  # ),
-                  # h2("Mortalidad por causas de muerte"),
-                  # fluidRow(
-                  #   column (width=12,
-                  #           
-                  #           plotlyOutput(outputId = "mortalidad_causas_fecha"))
-                  # )
           ),
           tabItem("categorias",
                   fluidRow(
@@ -201,16 +219,21 @@ ui <- dashboardPage(
                   )
                 ),
           tabItem("localizacion",
-                    mainPanel(
-                      h2("Mortalidad por departamentos"),
-                      fluidRow(
-                        column(width = 12,offset = 4,leafletOutput(outputId = "mortalidad_mapa"))
-                      )
-                      
+                  fluidRow(h2("Mortalidad por departamentos")),
+                  fluidRow(
+                    column(width = 12,offset = 1,
+                           tabBox(
+                             selected = "Tasa de mortalidad por departamento", side = "left", height = "100%", width = "50%",
+                             tabPanel("Tasa de mortalidad por departamento", leafletOutput(outputId = "mortalidad_mapa")),
+                             tabPanel("Datos", dataTableOutput("dataDepartamentos"))
+                           )
                     )
-                  ),
+                      
+                  )
+          ),
           tabItem("datos",
-                  downloadButton('Descargar',"CSV"),
+                  fluidRow(downloadButton('DescargarCsv',"CSV"), downloadButton('DescargarXlsx',"Excel")),
+                  br(),
                   dataTableOutput("dataTable")
                   )
           )
@@ -223,8 +246,12 @@ ui <- dashboardPage(
 
 server <- function(input, output) {
   
+  #muertes_fecha_plot <- reactive(filter(muertes_fecha$año %in% input$years))
+ 
+  
   output$mortalidad_fecha <- renderPlotly({
-    plot_ly(muertes_fecha, x = ~fullDate, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
+    #muertes_fecha <- muertes_fecha()
+    plot_ly(muertes_fecha_plot, x = Semana_epidemiologica, y = n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
       config(displaylogo = FALSE) %>%
       layout(xaxis= list(title = "Semana epidemiológica"),
              yaxis= list(title = "Cantidad de muertes"))
@@ -232,17 +259,17 @@ server <- function(input, output) {
   })
   
   output$mortalidad_causas_fecha <- renderPlotly({
-    plot_ly(causas_fecha, x = ~fullDate, y = ~n, color = ~CAUSA1, type = 'scatter', mode = 'line', colors = "Set2") %>% 
+    plot_ly(causas_fecha, x = ~Semana_epidemiologica, y = ~n, color = ~Causa_1, type = 'scatter', mode = 'line', colors = "Set2") %>% 
     config(displaylogo = FALSE)%>%
-      layout(xaxis = list(title = 'Fecha'),
+      layout(xaxis = list(title = 'Semana epidemiológica'),
              yaxis = list(title = 'Cantidad de muertes'),
              legend = list(title=list(text='<b> Causas de muerte </b>')))
   })
   
  
   output$mortalidad_edad <- renderPlotly({
-    plot_ly(mujeres, x = mujeres$GRUPO_ETARIO, y= ~n, type = 'bar', name = "Femenino", marker=list(color ='#FFAAA7'))%>%
-      add_trace(hombres,x = hombres$GRUPO_ETARIO, y = hombres$n, name = "Masculino", marker=list(color ='#98DDCA')) %>%
+    plot_ly(mujeres, x = mujeres$Grupo_etario, y= ~n, type = 'bar', name = "Femenino", marker=list(color ='#FFAAA7'))%>%
+      add_trace(hombres,x = hombres$Grupo_etario, y = hombres$n, name = "Masculino", marker=list(color ='#98DDCA')) %>%
       layout(xaxis = list(title = 'Grupos etarios'),
              yaxis = list(title = 'Cantidad de muertes'),
              barmode = 'stack',
@@ -302,12 +329,21 @@ server <- function(input, output) {
     datatable(allDataTable)
   })
   
-  output$Descargar <- downloadHandler(
+  output$DescargarCsv <- downloadHandler(
     filename = function() {
       paste("datos_mortalidad-", Sys.Date(), ".csv", sep="")
     },
     content = function(file) {
       write.csv(allDataTable, file)
+    }
+  )
+  
+  output$DescargarXlsx <- downloadHandler(
+    filename = function() {
+      paste("datos_mortalidad-", Sys.Date(), ".xlsx", sep="")
+    },
+    content = function(file) {
+      write_xlsx(allDataTable, path = file)
     }
   )
   
@@ -325,6 +361,10 @@ server <- function(input, output) {
   
   output$dataMortalidadFecha <- renderDataTable({
     datatable(muertes_fecha)
+  })
+  
+  output$dataDepartamentos <- renderDataTable({
+    datatable(muertes_departamentos)
   })
   
   
