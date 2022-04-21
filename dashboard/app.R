@@ -31,7 +31,9 @@ muertes_fecha$fullDate <- str_c(muertes_fecha$year,"-",muertes_fecha$epiWeek)
 muertes_fecha$n <- 1
 muertes_fecha <- muertes_fecha %>% group_by(fullDate) %>% summarise(n=sum(n))
 names (muertes_fecha)[1] = "Semana_epidemiologica"
-muertes_fecha$año <- sub("\\-.*", "", muertes_fecha$Semana_epidemiologica)
+# muertes_fecha$Año <- sub("\\-.*", "", muertes_fecha$Semana_epidemiologica)
+# muertes_fecha$Año <- sub(".*-\\.*", "", muertes_fecha$Semana_epidemiologica)
+
 
 #Agrupacion de causas de muerte
 causas <- all_data
@@ -246,12 +248,12 @@ ui <- dashboardPage(
 
 server <- function(input, output) {
   
+  
   #muertes_fecha_plot <- reactive(filter(muertes_fecha$año %in% input$years))
  
   
   output$mortalidad_fecha <- renderPlotly({
-    #muertes_fecha <- muertes_fecha()
-    plot_ly(muertes_fecha_plot, x = Semana_epidemiologica, y = n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
+    plot_ly(muertes_fecha, x = ~Semana_epidemiologica, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
       config(displaylogo = FALSE) %>%
       layout(xaxis= list(title = "Semana epidemiológica"),
              yaxis= list(title = "Cantidad de muertes"))
@@ -265,6 +267,7 @@ server <- function(input, output) {
              yaxis = list(title = 'Cantidad de muertes'),
              legend = list(title=list(text='<b> Causas de muerte </b>')))
   })
+  
   
  
   output$mortalidad_edad <- renderPlotly({
