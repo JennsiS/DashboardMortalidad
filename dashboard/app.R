@@ -21,7 +21,21 @@ setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 all_data <- read.csv(file = 'all_data.csv')
 poblaciones <- read_excel( "PoblacionesINE.xlsx")
 
+
+
 ###################DATA######################
+
+
+p_2015<- sum(poblaciones$`2015`)
+p_2016<- sum(poblaciones$`2016`)
+p_2017<- sum(poblaciones$`2017`)
+p_2018<- sum(poblaciones$`2018`)
+p_2019<- sum(poblaciones$`2019`)
+p_2020<- sum(poblaciones$`2020`)
+p_2021<- sum(poblaciones$`2021`)
+p_total <- p_2015 + p_2016 + p_2017 + p_2018 + p_2019 + p_2020 + p_2021
+tasa_mortalidad <- (nrow(all_data)/p_total) * 1000
+
 
 #Muertes por semana epidemiologica
 muertes_fecha <- all_data
@@ -135,30 +149,38 @@ causas <- subset(causas) %>% filter(CAUSA1!="DESCONOCIDA")
 causas <- head(arrange(causas,desc(n)), n = 10)
 names (causas)[1] = "Causas"
 
+head(causas$Causas,1)
+
 #Datos
 allDataTable <- all_data
 allDataTable <- subset(allDataTable, select=-ID)
 
+years_options <-      c("2015" = "2015",
+                        "2016" = "2016",
+                        "2017" = "2017",
+                        "2018" = "2018",
+                        "2019" = "2019",
+                        "2020" = "2020",
+                        "2021" = "2021" )
+
 ####################################UI#########################################
 
 ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
-      dashboardHeader(title="Categorías"),
+      dashboardHeader(title = HTML("Tablero de Mortalidad de Guatemala"), 
+                      disable = FALSE, 
+                      titleWidth  = 550),
       dashboardSidebar(
         sidebarMenu(
+          style = "position: relative; overflow: visible;",
+          menuItem("Principal", tabName = "principal"),
           menuItem("Fechas", tabName = "fechas"),
           menuItem("Edad, Sexo y Causas", tabName = "categorias"),
           menuItem("Localización", tabName = "localizacion"),
           menuItem("Datos", tabName = "datos"),
+          menuItem(h4("Años seleccionados: ")),
+          menuItem(checkboxInput("todos","Todos/Ninguno",value=TRUE)),
           menuItem(
-            checkboxGroupInput("years", "Años seleccionados:",
-                               c("2015" = "2015",
-                                 "2016" = "2016",
-                                 "2017" = "2017",
-                                 "2018" = "2018",
-                                 "2019" = "2019",
-                                 "2020" = "2020",
-                                 "2021" = "2021"
-                                 ),
+            checkboxGroupInput("years", "", years_options,
                                selected =  c("2015",
                                              "2016",
                                              "2017",
@@ -181,9 +203,32 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
             h3 {
             	font-family: "Catamaran", sans-serif !important;
             }
+            h4{
+              font-family: "Catamaran", sans-serif !important;
+            }
         '))),
         div(""),
         tabItems(
+          tabItem("principal",
+                    h3("Mortalidad Guatemala 2015-2021"),
+                    p('Según la Organización de las Naciones Unidas (ONU) la mortalidad es: "Es la desaparición permanente de todo signo de vida, cualquiera que sea el tiempo transcurrido desde el nacimiento con vida"'),
+                    p("Este tablero resume las estadistícas de mortalidad de Guatemala, 
+                      comprendiendo los registros de defunciones desde el año 2015 hasta el 2021
+                      obtenidos en las bases de datos de RENAP."),
+                    p("Este tablero ha sido desarrollado como un producto del proyecto 
+                    “PHR-MODELS-C19“ como una iniciativa para fortalecer la disponibilidad de la información para Guatemala."),
+                    p("En el menú desplazable del lado izquierdo se encuentra organizado por pestañas según diferentes categorías las estadísticas más 
+                      relevantes en cuanto a mortalidad, presentadas de forma gráfica y acompañadas de un cuadro de datos que puede ser descargado."),
+
+                  br(),  
+                  fluidRow(
+                      valueBox(nrow(all_data), "Defunciones registradas", icon = icon("fa-regular fa-display-medical")),
+                      valueBox(format(round(tasa_mortalidad, 2), nsmall = 2), "Tasa bruta de mortalidad", icon = icon("percent")),
+                      valueBox(
+                        tags$p(head(causas$Causas,1), style = "font-size: 80%;"), "Causa de muerte más frecuente", icon = icon("wave-pulse"))
+                    ),
+        
+                  ),
           tabItem("fechas",
                   h3("Mortalidad por años y semanas epidemiológicas"),
                   fluidRow(
@@ -265,12 +310,18 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
 
 ##################################SERVER#########################################  
 
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   
   muertes_fecha_plot <- reactive(subset(muertes_fecha, muertes_fecha$Año %in% input$years))
   causas_fecha_plot <- reactive(subset(causas_fecha, causas_fecha$Año %in% input$years))
  
+  observe({
+    updateCheckboxGroupInput(
+      session, "years", choices=years_options,
+      selected = if(input$todos) years_options
+    )
+  })
   
   output$mortalidad_fecha <- renderPlotly({
     #plot_ly(muertes_fecha, x = ~Semana_epidemiologica, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
@@ -370,23 +421,78 @@ server <- function(input, output) {
   )
   
   output$dataEdadSexo <- renderDataTable({
-    datatable(grupos_etarios)
+    datatable(grupos_etarios,
+              extensions = 'Buttons', options = list(
+                dom = 'Bfrtip',
+                buttons = 
+                  list('copy', 'print', list(
+                    extend = 'collection',
+                    buttons = c('csv', 'excel', 'pdf'),
+                    text = 'Download'
+                  ))
+                
+                )
+              )
   })
   
   output$dataCausas <- renderDataTable({
-    datatable(causas)
+    datatable(causas,
+              extensions = 'Buttons', options = list(
+                dom = 'Bfrtip',
+                buttons = 
+                  list('copy', 'print', list(
+                    extend = 'collection',
+                    buttons = c('csv', 'excel', 'pdf'),
+                    text = 'Download'
+                  ))
+                
+                )
+              )
   })
   
   output$dataCausasFecha <- renderDataTable({
-    datatable(causas_fecha)
+    datatable(causas_fecha,
+              extensions = 'Buttons', options = list(
+                dom = 'Bfrtip',
+                buttons = 
+                  list('copy', 'print', list(
+                    extend = 'collection',
+                    buttons = c('csv', 'excel', 'pdf'),
+                    text = 'Download'
+                  ))
+                
+                )
+              )
   })
   
   output$dataMortalidadFecha <- renderDataTable({
-    datatable(muertes_fecha)
+    datatable(muertes_fecha,
+              extensions = 'Buttons', options = list(
+                dom = 'Bfrtip',
+                buttons = 
+                  list('copy', 'print', list(
+                    extend = 'collection',
+                    buttons = c('csv', 'excel', 'pdf'),
+                    text = 'Download'
+                  ))
+                
+                )
+              )
   })
   
   output$dataDepartamentos <- renderDataTable({
-    datatable(muertes_departamentos)
+    datatable(muertes_departamentos,
+              extensions = 'Buttons', options = list(
+                dom = 'Bfrtip',
+                buttons = 
+                  list('copy', 'print', list(
+                    extend = 'collection',
+                    buttons = c('csv', 'excel', 'pdf'),
+                    text = 'Download'
+                  ))
+                
+                )
+              )
   })
   
   
