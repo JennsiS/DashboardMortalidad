@@ -31,8 +31,9 @@ muertes_fecha$fullDate <- str_c(muertes_fecha$year,"-",muertes_fecha$epiWeek)
 muertes_fecha$n <- 1
 muertes_fecha <- muertes_fecha %>% group_by(fullDate) %>% summarise(n=sum(n))
 names (muertes_fecha)[1] = "Semana_epidemiologica"
-# muertes_fecha$Año <- sub("\\-.*", "", muertes_fecha$Semana_epidemiologica)
+muertes_fecha$Año <- sub("\\-.*", "", muertes_fecha$Semana_epidemiologica)
 # muertes_fecha$Año <- sub(".*-\\.*", "", muertes_fecha$Semana_epidemiologica)
+#subset(muertes_fecha, muertes_fecha$Año %in% c("2021"))
 
 
 #Agrupacion de causas de muerte
@@ -54,6 +55,7 @@ causas_fecha$fullDate <- str_c(causas_fecha$year,"-",causas_fecha$epiweek)
 causas_fecha <-causas_fecha %>% group_by(fullDate, CAUSA1) %>% summarise(n=sum(n))
 names (causas_fecha)[1] = "Semana_epidemiologica"
 names (causas_fecha)[2] = "Causa_1"
+causas_fecha$Año <- sub("\\-.*", "", causas_fecha$Semana_epidemiologica)
 
 
 
@@ -77,6 +79,7 @@ grupos_etarios <- all_data %>%
   ))
 
 grupos_etarios$n <- 1
+grupos_etarios$Año <- year(grupos_etarios$FECHA)
 grupos_etarios <- grupos_etarios %>% group_by(GRUPO_ETARIO, SEXO) %>% summarise(n=sum(n))
 grupos_etarios$GRUPO_ETARIO <- factor(grupos_etarios$GRUPO_ETARIO, levels = 
                                       c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69",
@@ -138,12 +141,12 @@ allDataTable <- subset(allDataTable, select=-ID)
 
 ####################################UI#########################################
 
-ui <- dashboardPage(
-      dashboardHeader(title = "Tablero mortalidad Guatemala"),
+ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
+      dashboardHeader(title="Categorías"),
       dashboardSidebar(
         sidebarMenu(
           menuItem("Fechas", tabName = "fechas"),
-          menuItem("Categorías", tabName = "categorias"),
+          menuItem("Edad, Sexo y Causas", tabName = "categorias"),
           menuItem("Localización", tabName = "localizacion"),
           menuItem("Datos", tabName = "datos"),
           menuItem(
@@ -175,14 +178,16 @@ ui <- dashboardPage(
               
             }
             
-            h2 {
+            h3 {
             	font-family: "Catamaran", sans-serif !important;
             }
         '))),
+        div(""),
         tabItems(
           tabItem("fechas",
+                  h3("Mortalidad por años y semanas epidemiológicas"),
                   fluidRow(
-                    column(width = 12,offset = 1,
+                    column(width = 12, offset=0.5,
                            tabBox(
                              selected = "Mortalidad por semanas epidemiologicas", height = "100%", width = "50%",
                              tabPanel("Mortalidad por semanas epidemiologicas",  plotlyOutput(outputId = "mortalidad_fecha")),
@@ -190,8 +195,9 @@ ui <- dashboardPage(
                            )
                     )
                   ),
+                  h3("Causas de mortalidad más frecuentes por años y semanas epidemiológicas"),
                   fluidRow(
-                    column(width = 12,offset = 1,
+                    column(width = 12, offset=0.5,
                            tabBox(
                              selected = "Causas de mortalidad mas frecuentes en el tiempo", side = "left", height = "100%", width = "50%",
                              tabPanel("Causas de mortalidad mas frecuentes en el tiempo",  plotlyOutput(outputId = "mortalidad_causas_fecha")),
@@ -201,8 +207,9 @@ ui <- dashboardPage(
                   )
           ),
           tabItem("categorias",
+                  fluidRow(h3("Mortalidad por grupo etario y sexo")),
                   fluidRow(
-                    column(width = 12,offset = 1,
+                    column(width = 8, offset = 1,
                       tabBox(
                         selected = "Mortalidad por Grupo etario y Sexo", height = "100%", width = "50%",
                         tabPanel("Mortalidad por Grupo etario y Sexo", plotlyOutput(outputId = "mortalidad_edad")),
@@ -210,8 +217,9 @@ ui <- dashboardPage(
                       )
                     )
                   ),
+                  fluidRow(h3("Cantidad de defunciones por causas más frecuentes de mortalidad")),
                   fluidRow(
-                    column(width = 12,offset = 1,
+                    column(width = 8, offset = 1,
                       tabBox(
                         selected = "Causas de mortalidad mas frecuentes", side = "left", height = "100%", width = "50%",
                         tabPanel("Causas de mortalidad mas frecuentes", plotlyOutput(outputId = "mortalidad_causas")),
@@ -221,9 +229,9 @@ ui <- dashboardPage(
                   )
                 ),
           tabItem("localizacion",
-                  fluidRow(h2("Mortalidad por departamentos")),
+                  fluidRow(h3("Mortalidad por departamentos")),
                   fluidRow(
-                    column(width = 12,offset = 1,
+                    column(width = 12,offset = 0.5,
                            tabBox(
                              selected = "Tasa de mortalidad por departamento", side = "left", height = "100%", width = "50%",
                              tabPanel("Tasa de mortalidad por departamento", leafletOutput(outputId = "mortalidad_mapa")),
@@ -231,11 +239,22 @@ ui <- dashboardPage(
                            )
                     )
                       
+                  ),
+                  fluidRow(
+                    column(width= 8, offset = 2,
+                           p("Este mapa describe la tasa de mortalidad cruda por año. Como denominador, se ha utilizado la
+                              población proyectada por el Instituto Nacional de Estadística (INE) para cada año por
+                              departamento. Las tasas se expresan por cada 100,000 habitantes.")
+                    )
                   )
+                  
           ),
           tabItem("datos",
-                  fluidRow(downloadButton('DescargarCsv',"CSV"), downloadButton('DescargarXlsx',"Excel")),
-                  br(),
+                  fluidRow(
+                    column(width = 4, offset = 0.5,
+                      downloadButton('DescargarCsv',"CSV"), downloadButton('DescargarXlsx',"Excel")),
+                    ),
+                    br(),
                   dataTableOutput("dataTable")
                   )
           )
@@ -249,11 +268,13 @@ ui <- dashboardPage(
 server <- function(input, output) {
   
   
-  #muertes_fecha_plot <- reactive(filter(muertes_fecha$año %in% input$years))
+  muertes_fecha_plot <- reactive(subset(muertes_fecha, muertes_fecha$Año %in% input$years))
+  causas_fecha_plot <- reactive(subset(causas_fecha, causas_fecha$Año %in% input$years))
  
   
   output$mortalidad_fecha <- renderPlotly({
-    plot_ly(muertes_fecha, x = ~Semana_epidemiologica, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
+    #plot_ly(muertes_fecha, x = ~Semana_epidemiologica, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
+    plot_ly(muertes_fecha_plot(), x = ~Semana_epidemiologica, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
       config(displaylogo = FALSE) %>%
       layout(xaxis= list(title = "Semana epidemiológica"),
              yaxis= list(title = "Cantidad de muertes"))
@@ -261,7 +282,7 @@ server <- function(input, output) {
   })
   
   output$mortalidad_causas_fecha <- renderPlotly({
-    plot_ly(causas_fecha, x = ~Semana_epidemiologica, y = ~n, color = ~Causa_1, type = 'scatter', mode = 'line', colors = "Set2") %>% 
+    plot_ly(causas_fecha_plot(), x = ~Semana_epidemiologica, y = ~n, color = ~Causa_1, type = 'scatter', mode = 'line', colors = "Set2") %>% 
     config(displaylogo = FALSE)%>%
       layout(xaxis = list(title = 'Semana epidemiológica'),
              yaxis = list(title = 'Cantidad de muertes'),
@@ -284,8 +305,7 @@ server <- function(input, output) {
              yaxis = list(
                zerolinecolor = '#ffff',
                zerolinewidth = 2,
-               gridcolor = 'ffff'),
-             title ="Mortalidad por grupo etario y sexo")
+               gridcolor = 'ffff'))
   })
   
   output$mortalidad_mapa <- renderLeaflet({
@@ -324,8 +344,7 @@ server <- function(input, output) {
     plot_ly(causas, x = ~n, y = ~Causas, type = 'bar', orientation = 'h', marker=list(color ='#FE6D73')) %>%
       config(displaylogo = FALSE)%>%
       layout(xaxis = list(title = 'Cantidad de muertes'),
-             yaxis = list(title = 'Causas de muerte'),
-             title ="Causas más frecuentes de mortalidad")
+             yaxis = list(title = 'Causas de muerte'))
   })
   
   output$dataTable <- renderDataTable({
