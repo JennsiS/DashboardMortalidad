@@ -5,7 +5,9 @@ account: jensi
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 5955448
-bundleId: 5738127
+bundleId: 5836417
 url: https://jensi.shinyapps.io/dashboard/
-when: 1648520720.4732
-lastSyncTime: 1648520720.4732
+when: 1650931672.43323
+lastSyncTime: 1650931672.43323
+asMultiple: FALSE
+asStatic: FALSE

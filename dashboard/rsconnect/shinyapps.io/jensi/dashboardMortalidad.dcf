@@ -1,0 +1,14 @@
+name: dashboardMortalidad
+title: dashboardMortalidad
+username:
+account: jensi
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 6171380
+bundleId: 5889041
+url: https://jensi.shinyapps.io/dashboardMortalidad/
+when: 1652137767.01379
+lastSyncTime: 1652137767.01379
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData|all_data.csv|dashboardData.R|PoblacionesINE.xlsx
