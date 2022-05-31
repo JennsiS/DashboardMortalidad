@@ -5,10 +5,10 @@ account: jensi
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 6171380
-bundleId: 5889041
+bundleId: 5913091
 url: https://jensi.shinyapps.io/dashboardMortalidad/
-when: 1652137767.01379
-lastSyncTime: 1652137767.01379
+when: 1652739182.99453
+lastSyncTime: 1652739182.99453
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: .RData|all_data.csv|dashboardData.R|PoblacionesINE.xlsx

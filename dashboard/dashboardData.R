@@ -17,18 +17,23 @@ library(graphics)
 library(utils)
 library(datasets)
 
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 all_data <- read.csv(file = 'all_data.csv')
 poblaciones <- read_excel( "PoblacionesINE.xlsx")
 allDataTable <- all_data
 allDataTable <- subset(allDataTable, select=-ID)
 
-years_options <-      c("2015" = "2015",
-                        "2016" = "2016",
-                        "2017" = "2017",
-                        "2018" = "2018",
-                        "2019" = "2019",
-                        "2020" = "2020",
-                        "2021" = "2021" )
+years_options <-      c("2015",
+                        "2016",
+                        "2017",
+                        "2018",
+                        "2019",
+                        "2020",
+                        "2021" )
+
+data_filtrada <- all_data
+data_filtrada$anio <- year(data_filtrada$FECHA)
+
 causas <- all_data
 causas$n <- 1
 causas <- causas %>% group_by(CAUSA1) %>% summarise(n=sum(n))
@@ -51,6 +56,8 @@ tasa_mortalidad <- (nrow(all_data)/p_total) * 1000
 muertes_fecha <- all_data
 muertes_fecha$epiWeek <- epiweek(muertes_fecha$FECHA)
 muertes_fecha$year <- year(muertes_fecha$FECHA)
+muertes_fecha$epiWeek <- paste0(year(muertes_fecha$FECHA)," - ", epiweek(muertes_fecha$FECHA))
+
 muertes_fecha$fullDate <- str_c(muertes_fecha$year,"-",muertes_fecha$epiWeek)
 muertes_fecha$n <- 1
 muertes_fecha <- muertes_fecha %>% group_by(fullDate) %>% summarise(n=sum(n))
@@ -82,47 +89,6 @@ names (causas_fecha)[2] = "Causa_1"
 causas_fecha$Year <- sub("\\-.*", "", causas_fecha$Semana_epidemiologica)
 
 
-
-#Agrupacion por grupo etario y sexo
-grupos_etarios <- all_data
-grupos_etarios$EDAD <- as.numeric(grupos_etarios$EDAD)
-grupoes_etarios <- na.omit(grupos_etarios)
-grupos_etarios <- grupoes_etarios %>%
-  mutate(GRUPO_ETARIO = case_when(
-    between(EDAD,0,9) ~ "0-9",
-    between(EDAD,10,19) ~ "10-19",
-    between(EDAD,20,29) ~ "20-29",
-    between(EDAD,30,39) ~ "30-39",
-    between(EDAD,40,49) ~ "40-49",
-    between(EDAD,50,59) ~ "50-59",
-    between(EDAD,60,69) ~ "60-69",
-    between(EDAD,70,79) ~ "70-79",
-    between(EDAD,80,89) ~ "80-89",
-    between(EDAD,90,99) ~ "90-99",
-    between(EDAD,100,109) ~ "100-109",
-    between(EDAD,110,119) ~ "110-119",
-    between(EDAD,120,150) ~ "120+",
-    EDAD == "DESCONOCIDA" ~ "DESCONOCIDA"
-  ))
-
-grupos_etarios$n <- 1
-grupos_etarios$Year <- year(grupos_etarios$FECHA)
-grupos_etarios <- grupos_etarios %>% group_by(GRUPO_ETARIO, SEXO) %>% summarise(n=sum(n))
-grupos_etarios$GRUPO_ETARIO <- factor(grupos_etarios$GRUPO_ETARIO, levels =
-                                        c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69",
-                                          "70-79", "80-89", "90-99", "100-109", "110-119", "120+", "DESCONOCIDA"))
-
-
-grupos_etarios <- subset(grupos_etarios) %>% filter(GRUPO_ETARIO!="DESCONOCIDA")
-mujeres <- grupos_etarios%>% filter(SEXO=="F")
-hombres <- grupos_etarios%>% filter(SEXO=="M")
-names(grupos_etarios)[1] = "Grupo_etario"
-names(grupos_etarios)[2] = "Sexo"
-names (mujeres)[1] = "Grupo_etario"
-names (mujeres)[2] = "Sexo"
-names (hombres)[1] = "Grupo_etario"
-names (hombres)[2] = "Sexo"
-
 #desconocidos <- grupos_etarios%>% filter(SEXO=="DESCONOCIDO")
 colors_grapo <- c('#348AA7', '#525174', '#5DD39E','#BCE784')
 
@@ -153,7 +119,7 @@ dep_labels <-sprintf(
   muertes_departamentos$nombre, muertes_departamentos$TASA
 ) %>% lapply(htmltools::HTML)
 
-#Agrupación por causas de muerte más comunes
+#AgrupaciÃ³n por causas de muerte mÃ¡s comunes
 causas <- all_data
 causas$n <- 1
 causas <- causas %>% group_by(CAUSA1) %>% summarise(n=sum(n))
@@ -161,3 +127,61 @@ causas <- subset(causas) %>% filter(CAUSA1!="DESCONOCIDA")
 
 causas <- head(arrange(causas,desc(n)), n = 10)
 names (causas)[1] = "Causas"
+
+
+###### Funciones
+
+
+groupby_edad_sexo <- function(data,sexo) {
+  #Agrupacion por grupo etario y sexo
+  grupos_etarios <- data
+  #grupos_etarios <- reactive(data_filtrada)
+  grupos_etarios$EDAD <- as.numeric(grupos_etarios$EDAD)
+  grupoes_etarios <- na.omit(grupos_etarios)
+  grupos_etarios <- grupoes_etarios %>%
+    mutate(GRUPO_ETARIO = case_when(
+      between(EDAD,0,9) ~ "0-9",
+      between(EDAD,10,19) ~ "10-19",
+      between(EDAD,20,29) ~ "20-29",
+      between(EDAD,30,39) ~ "30-39",
+      between(EDAD,40,49) ~ "40-49",
+      between(EDAD,50,59) ~ "50-59",
+      between(EDAD,60,69) ~ "60-69",
+      between(EDAD,70,79) ~ "70-79",
+      between(EDAD,80,89) ~ "80-89",
+      between(EDAD,90,99) ~ "90-99",
+      between(EDAD,100,109) ~ "100-109",
+      between(EDAD,110,119) ~ "110-119",
+      between(EDAD,120,150) ~ "120+",
+      EDAD == "DESCONOCIDA" ~ "DESCONOCIDA"
+    ))
+  
+  grupos_etarios$n <- 1
+  grupos_etarios$Year <- year(grupos_etarios$FECHA)
+  grupos_etarios <- grupos_etarios %>% group_by(GRUPO_ETARIO, SEXO) %>% summarise(n=sum(n))
+  grupos_etarios$GRUPO_ETARIO <- factor(grupos_etarios$GRUPO_ETARIO, levels =
+                                          c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69",
+                                            "70-79", "80-89", "90-99", "100-109", "110-119", "120+", "DESCONOCIDA"))
+  
+  
+  grupos_etarios <- subset(grupos_etarios) %>% filter(GRUPO_ETARIO!="DESCONOCIDA")
+  names(grupos_etarios)[1] = "Grupo_etario"
+  names(grupos_etarios)[2] = "Sexo"
+  
+  if (sexo =="h") {
+    hombres <- grupos_etarios%>% filter(Sexo=="M")
+    names (hombres)[1] = "Grupo_etario"
+    names (hombres)[2] = "Sexo"
+    return(hombres)
+    
+  } else if (sexo =="m"){
+    mujeres <- grupos_etarios%>% filter(Sexo=="F")
+    names (mujeres)[1] = "Grupo_etario"
+    names (mujeres)[2] = "Sexo"
+    return(mujeres)
+    
+  }
+
+  
+}
+

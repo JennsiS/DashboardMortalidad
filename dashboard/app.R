@@ -42,8 +42,8 @@ load(file = "preloadData.RData")
 # all_data <- read.csv(file = 'all_data.csv')
 # poblaciones <- read_excel( "PoblacionesINE.xlsx")
 
-
-
+valueBoxText <- paste("Defunciones registradas en el perÃ­odo ", years_options[1] , sep ="")
+valueBoxText <- paste(valueBoxText, years_options[length(years_options)] , sep ="-")
 
 ####################################UI#########################################
 
@@ -57,7 +57,7 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                          menuItem("Principal", tabName = "principal"),
                          menuItem("Fechas", tabName = "fechas"),
                          menuItem("Edad, Sexo y Causas", tabName = "categorias"),
-                         menuItem("Localización", tabName = "localizacion"),
+                         menuItem("Ubicación", tabName = "ubicacion"),
                          menuItem("Datos", tabName = "datos"),
                          menuItem(h4("Años seleccionados: ")),
                          menuItem(checkboxInput("todos","Todos/Ninguno",value=TRUE)),
@@ -93,27 +93,33 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                        tabItems(
                          tabItem("principal",
                                  h3("Mortalidad Guatemala 2015-2021"),
-                                 p('Según la Organización de las Naciones Unidas (ONU) la mortalidad es: "Es la desaparición permanente de todo signo de vida, cualquiera que sea el tiempo transcurrido desde el nacimiento con vida"'),
+                                 p('La mortalidad es: "Es la desaparición permanente de todo signo de vida, cualquiera que sea el tiempo transcurrido desde el nacimiento con vida"'),
                                  p("Este tablero resume las estadistícas de mortalidad de Guatemala, 
-                      comprendiendo los registros de defunciones desde el Year 2015 hasta el 2021
-                      obtenidos en las bases de datos de RENAP."),
-                                 p("Este tablero ha sido desarrollado como un producto del proyecto 
-                    “PHR-MODELS-C19“ como una iniciativa para fortalecer la disponibilidad de la información para Guatemala."),
-                                 p("En el menú desplazable del lado izquierdo se encuentra organizado por pestañas según diferentes categorías las estadísticas más 
-                      relevantes en cuanto a mortalidad, presentadas de forma gráfica y acompañadas de un cuadro de datos que puede ser descargado."),
+                      comprendiendo los registros de defunciones desde el Año 2015 hasta el 2021
+                      obtenidos en las bases de datos del Registro Nacional de Personas de Guatemala (RENAP)."),
+                                 p("Este tablero ha sido desarrollado como un producto del proyecto  PHR-MODELS-C19 del Centro de Estudios en Salud de la Universidad del Valle de Guatemala, a través de un acuerdo cooperativo con los Centros para la Prevención y Control de Enfermedades de Estados Unidos (US CDC), como una iniciativa para fortalecer la disponibilidad de información en salud pública para Guatemala."),
+                                 p("El menú desplazable del lado izquierdo se encuentra organizado por pestañas según diferentes categorías de interés. Las pestañas presentan estadísticas  
+                      relevantes en cuanto a mortalidad, presentadas de forma gráfica acompañadas de un cuadro de datos que puede descargarse oprimiendo el botón correspondiente en cada sección"),
                                  
                                  br(),  
                                  fluidRow(
                                    # valueBox(nrow(all_data), "Defunciones registradas", icon = icon("fa-regular fa-display-medical")),
-                                   valueBox(nrow(all_data), "Defunciones registradas"),
-                                   valueBox(format(round(tasa_mortalidad, 2), nsmall = 2), "Tasa bruta de mortalidad", icon = icon("percent")),
+                                   valueBox(format(nrow(all_data),big.mark=",",scientific=FALSE), valueBoxText),
+                                   valueBox(format(round(tasa_mortalidad, 2), nsmall = 2), "Tasa bruta de mortalidad por 1,000 habitantes"),
                                    valueBox(
                                      tags$p(head(causas$Causas,1), style = "font-size: 80%;"), "Causa de muerte más frecuente")
                                  ),
                                  
+                                 fluidRow(
+                                   column(width=12,
+                                         box(p(" El tablero se ha preparado utilizando datos disponibles del Registro Nacional de las Personas (RENAP). Dado el retraso en registro de algunos datos, los mismos pueden cambiar con frecuencia según se actualicen las bases de datos fuente."))
+                                   )
+                                 )
+                                 
+                                 
                          ),
                          tabItem("fechas",
-                                 h3("Mortalidad por años y semanas epidemiológicas"),
+                                 h3("Número de muertes totales por semana epidemiológica, Guatemala, enero 2015 a enero 2021"),
                                  fluidRow(
                                    column(width = 12, offset=0.5,
                                           tabBox(
@@ -123,7 +129,7 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                           )
                                    )
                                  ),
-                                 h3("Causas de mortalidad más frecuentes por años y semanas epidemiológicas"),
+                                 h3("Número de muertes totales de las causas de muerte más frecuentes por semana epidemiológica, Guatemala, enero 2015 a enero 2021s"),
                                  fluidRow(
                                    column(width = 12, offset=0.5,
                                           tabBox(
@@ -156,7 +162,7 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                    )
                                  )
                          ),
-                         tabItem("localizacion",
+                         tabItem("ubicacion",
                                  fluidRow(h3("Mortalidad por departamentos")),
                                  fluidRow(
                                    column(width = 12,offset = 0.5,
@@ -170,9 +176,10 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                  ),
                                  fluidRow(
                                    column(width= 8, offset = 2,
-                                          p("Este mapa describe la tasa de mortalidad cruda por Year. Como denominador, se ha utilizado la
-                              población proyectada por el Instituto Nacional de Estadística (INE) para cada Year por
-                              departamento. Las tasas se expresan por cada 100,000 habitantes.")
+                                          p("Este mapa describe la tasa de mortalidad cruda por año. Como denominador, se ha utilizado la
+                              población proyectada por el Instituto Nacional de Estadística (INE) para cada año por
+                              departamento. Las tasas se expresan por cada 100,000 habitantes."),
+                                          a("Referencia de poblaciones INE", href="https://www.ine.gob.gt/ine/proyecciones/")
                                    )
                                  )
                                  
@@ -196,8 +203,22 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
 server <- function(input, output, session) {
   
   
+  
+  
   muertes_fecha_plot <- reactive(subset(muertes_fecha, muertes_fecha$Year %in% input$years))
   causas_fecha_plot <- reactive(subset(causas_fecha, causas_fecha$Year %in% input$years))
+  hombres_plot <- reactive({
+        data_anios <- subset(all_data, year(all_data$FECHA) %in% input$years)
+        #hombres_data <- groupby_edad_hombres(data_anios)
+        hombres_data <- groupby_edad_sexo(data_anios,"h")
+        return(hombres_data)
+     })
+  mujeres_plot <- reactive({
+    data_anios <- subset(all_data, year(all_data$FECHA) %in% input$years)
+    #mujeres_data <- groupby_edad_mujeres(data_anios)
+    mujeres_data <- groupby_edad_sexo(data_anios,"m")
+    return(mujeres_data)
+  })
   
   observe({
     updateCheckboxGroupInput(
@@ -210,36 +231,41 @@ server <- function(input, output, session) {
     #plot_ly(muertes_fecha, x = ~Semana_epidemiologica, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
     plot_ly(muertes_fecha_plot(), x = ~Semana_epidemiologica, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
       config(displaylogo = FALSE) %>%
-      layout(xaxis= list(title = "Semana epidemiológica"),
-             yaxis= list(title = "Cantidad de muertes"))
+      layout(xaxis= list(title = "Año y semana epidemiológica"),
+             yaxis= list(title = "Número de muertes"))
     
   })
   
   output$mortalidad_causas_fecha <- renderPlotly({
     plot_ly(causas_fecha_plot(), x = ~Semana_epidemiologica, y = ~n, color = ~Causa_1, type = 'scatter', mode = 'line', colors = "Set2") %>% 
       config(displaylogo = FALSE)%>%
-      layout(xaxis = list(title = 'Semana epidemiológica'),
-             yaxis = list(title = 'Cantidad de muertes'),
+      layout(xaxis = list(title = 'Año y semana epidemiológica'),
+             yaxis = list(title = 'Número de muertes'),
              legend = list(title=list(text='<b> Causas de muerte </b>')))
   })
   
   
   
   output$mortalidad_edad <- renderPlotly({
-    plot_ly(mujeres, x = mujeres$Grupo_etario, y= ~n, type = 'bar', name = "Femenino", marker=list(color ='#FFAAA7'))%>%
-      add_trace(hombres,x = hombres$Grupo_etario, y = hombres$n, name = "Masculino", marker=list(color ='#98DDCA')) %>%
+    plot_ly(mujeres_plot(), x = ~Grupo_etario, y= ~n, type = 'bar', name = "Femenino", marker=list(color ='#FFAAA7'))%>%
+      add_trace(hombres_plot(),x = ~Grupo_etario, y = ~n, name = "Masculino", marker=list(color ='#98DDCA')) %>%
       layout(xaxis = list(title = 'Grupos etarios'),
-             yaxis = list(title = 'Cantidad de muertes'),
+             yaxis = list(title = 'Número de muertes'),
              barmode = 'stack',
              plot_bgcolor='#e5ecf6',
              xaxis = list(
                zerolinecolor = '#ffff',
                zerolinewidth = 2,
-               gridcolor = 'ffff'),
+               gridcolor = 'ffff',
+               categoryorder = "array",
+               categoryarray = ~n
+               ),
              yaxis = list(
                zerolinecolor = '#ffff',
                zerolinewidth = 2,
-               gridcolor = 'ffff'))
+               gridcolor = 'ffff'
+               )
+             )
   })
   
   output$mortalidad_mapa <- renderLeaflet({
@@ -267,7 +293,7 @@ server <- function(input, output, session) {
           textsize = "15px",
           direction = "auto")
       ) %>%
-      addLegend(pal = pal, values = ~TASA, opacity = 0.7, title = "Cantidad de muertes",# titulo leyenda
+      addLegend(pal = pal, values = ~TASA, opacity = 0.7, title = "Tasa",# titulo leyenda
                 position = "bottomright", group = "Departamentos")%>% 
       setView(lat=16,lng=-90.522713, zoom = 7) %>% 
       addProviderTiles(providers$CartoDB.Positron)
