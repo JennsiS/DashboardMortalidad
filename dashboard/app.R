@@ -19,6 +19,7 @@ library(stats)
 library(graphics)
 library(utils)
 library(datasets)
+library(shinyBS)
 load(file = "preloadData.RData")
 
 # # Package names
@@ -42,7 +43,7 @@ load(file = "preloadData.RData")
 # all_data <- read.csv(file = 'all_data.csv')
 # poblaciones <- read_excel( "PoblacionesINE.xlsx")
 
-valueBoxText <- paste("Defunciones registradas en el perÃ­odo ", years_options[1] , sep ="")
+valueBoxText <- paste("Defunciones registradas en el período ", years_options[1] , sep ="")
 valueBoxText <- paste(valueBoxText, years_options[length(years_options)] , sep ="-")
 
 ####################################UI#########################################
@@ -105,14 +106,16 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                  fluidRow(
                                    # valueBox(nrow(all_data), "Defunciones registradas", icon = icon("fa-regular fa-display-medical")),
                                    valueBox(format(nrow(all_data),big.mark=",",scientific=FALSE), valueBoxText),
-                                   valueBox(format(round(tasa_mortalidad, 2), nsmall = 2), "Tasa bruta de mortalidad por 1,000 habitantes"),
+                                   valueBox(format(round(tasa_mortalidad, 2), nsmall = 2, id='tasa'), "Tasa bruta de mortalidad por 1,000 habitantes"),
+                                   shinyBS::bsTooltip('tasa', 'title', placement = "bottom", trigger = "hover", options = NULL),
                                    valueBox(
                                      tags$p(head(causas$Causas,1), style = "font-size: 80%;"), "Causa de muerte más frecuente")
                                  ),
                                  
                                  fluidRow(
                                    column(width=12,
-                                         box(p(" El tablero se ha preparado utilizando datos disponibles del Registro Nacional de las Personas (RENAP). Dado el retraso en registro de algunos datos, los mismos pueden cambiar con frecuencia según se actualicen las bases de datos fuente."))
+                                         box(p(" El tablero se ha preparado utilizando datos disponibles del Registro Nacional de las Personas (RENAP). Dado el retraso en registro de algunos datos, los mismos pueden cambiar con frecuencia según se actualicen las bases de datos fuente."),
+                                             width=12)
                                    )
                                  )
                                  
@@ -129,7 +132,7 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                           )
                                    )
                                  ),
-                                 h3("Número de muertes totales de las causas de muerte más frecuentes por semana epidemiológica, Guatemala, enero 2015 a enero 2021s"),
+                                 h3("Número de muertes totales de las causas de muerte más frecuentes por semana epidemiológica, Guatemala, enero 2015 a enero 2021"),
                                  fluidRow(
                                    column(width = 12, offset=0.5,
                                           tabBox(
@@ -141,9 +144,11 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                  )
                          ),
                          tabItem("categorias",
-                                 fluidRow(h3("Mortalidad por grupo etario y sexo")),
                                  fluidRow(
-                                   column(width = 8, offset = 1,
+                                   column(width =10,offset = 1,
+                                          h3("Número de muertes totales por grupo etario y sexo, Guatemala, enero 2015 a enero 2021"))),
+                                 fluidRow(
+                                   column(width = 10, offset = 1,
                                           tabBox(
                                             selected = "Mortalidad por Grupo etario y Sexo", height = "100%", width = "50%",
                                             tabPanel("Mortalidad por Grupo etario y Sexo", plotlyOutput(outputId = "mortalidad_edad")),
@@ -151,9 +156,9 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                           )
                                    )
                                  ),
-                                 fluidRow(h3("Cantidad de defunciones por causas más frecuentes de mortalidad")),
+                                 fluidRow(h3("Número de muertes totales por causas más frecuentes de mortalidad, Guatemala, enero 2015 a enero 2021")),
                                  fluidRow(
-                                   column(width = 8, offset = 1,
+                                   column(width = 10, offset = 1,
                                           tabBox(
                                             selected = "Causas de mortalidad mas frecuentes", side = "left", height = "100%", width = "50%",
                                             tabPanel("Causas de mortalidad mas frecuentes", plotlyOutput(outputId = "mortalidad_causas")),
@@ -163,7 +168,10 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                  )
                          ),
                          tabItem("ubicacion",
-                                 fluidRow(h3("Mortalidad por departamentos")),
+                                 fluidRow(
+                                   column(width =10,offset = 1,
+                                     h3("Tasa de mortalidad por departamentos, Guatemala"))
+                                   ),
                                  fluidRow(
                                    column(width = 12,offset = 0.5,
                                           tabBox(
@@ -209,17 +217,32 @@ server <- function(input, output, session) {
   causas_fecha_plot <- reactive(subset(causas_fecha, causas_fecha$Year %in% input$years))
   hombres_plot <- reactive({
         data_anios <- subset(all_data, year(all_data$FECHA) %in% input$years)
-        #hombres_data <- groupby_edad_hombres(data_anios)
         hombres_data <- groupby_edad_sexo(data_anios,"h")
-        return(hombres_data)
+
      })
   mujeres_plot <- reactive({
     data_anios <- subset(all_data, year(all_data$FECHA) %in% input$years)
-    #mujeres_data <- groupby_edad_mujeres(data_anios)
     mujeres_data <- groupby_edad_sexo(data_anios,"m")
-    return(mujeres_data)
+
   })
   
+  causas_plot <- reactive({
+    data_anios <- subset(all_data, year(all_data$FECHA) %in% input$years)
+    causas_data <- groupby_causas(data_anios)
+  })
+  
+  grupos_etarios <- reactive({
+    data_anios <- subset(all_data, year(all_data$FECHA) %in% input$years)
+    grupos_edad <- groupby_edad_sexo(data_anios,"edad")
+  })
+  
+  departamentos_plot <- reactive ({
+    data_anios <- subset(all_data, year(all_data$FECHA) %in% input$years)
+    departamentos_data <-groupby_departamento(data_anios,poblaciones, departamentos_locacion)
+  })
+  
+  
+
   observe({
     updateCheckboxGroupInput(
       session, "years", choices=years_options,
@@ -228,10 +251,10 @@ server <- function(input, output, session) {
   })
   
   output$mortalidad_fecha <- renderPlotly({
-    #plot_ly(muertes_fecha, x = ~Semana_epidemiologica, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
     plot_ly(muertes_fecha_plot(), x = ~Semana_epidemiologica, y = ~n, type = 'scatter', mode = 'lines', colors ='#00A6A6') %>%
       config(displaylogo = FALSE) %>%
-      layout(xaxis= list(title = "Año y semana epidemiológica"),
+      layout(#title= paste("Número de muertes totales por semana epidemiológica, Guatemala, ", ~Year ),
+             xaxis= list(title = "Año y semana epidemiológica"),
              yaxis= list(title = "Número de muertes"))
     
   })
@@ -239,7 +262,8 @@ server <- function(input, output, session) {
   output$mortalidad_causas_fecha <- renderPlotly({
     plot_ly(causas_fecha_plot(), x = ~Semana_epidemiologica, y = ~n, color = ~Causa_1, type = 'scatter', mode = 'line', colors = "Set2") %>% 
       config(displaylogo = FALSE)%>%
-      layout(xaxis = list(title = 'Año y semana epidemiológica'),
+      layout(
+            xaxis = list(title = 'Año y semana epidemiológica'),
              yaxis = list(title = 'Número de muertes'),
              legend = list(title=list(text='<b> Causas de muerte </b>')))
   })
@@ -269,7 +293,15 @@ server <- function(input, output, session) {
   })
   
   output$mortalidad_mapa <- renderLeaflet({
-    leaflet(mortalidad_dep) %>%
+    mapa_data <- departamentos_plot()
+    pal <- colorNumeric( colorRampPalette(brewer.pal(8,"Reds"))(5), domain = c(0,max(mapa_data$TASA)))
+    dep_labels <-sprintf(
+      "<strong>%s</strong><br/>Tasa de mortalidad: %g",
+      mapa_data$nombre, mapa_data$TASA
+    ) %>% lapply(htmltools::HTML)
+    
+    
+    leaflet(mapa_data) %>%
       setView(-94, 39, 5) %>%
       addProviderTiles("MapBox", options = providerTileOptions(
         id = "mapbox.light",
@@ -301,7 +333,7 @@ server <- function(input, output, session) {
   })
   
   output$mortalidad_causas <- renderPlotly({
-    plot_ly(causas, x = ~n, y = ~Causas, type = 'bar', orientation = 'h', marker=list(color ='#FE6D73')) %>%
+    plot_ly(causas_plot(), x = ~n, y = ~Causas, type = 'bar', orientation = 'h', marker=list(color ='#FE6D73')) %>%
       config(displaylogo = FALSE)%>%
       layout(xaxis = list(title = 'Cantidad de muertes'),
              yaxis = list(title = 'Causas de muerte'))
@@ -330,7 +362,7 @@ server <- function(input, output, session) {
   )
   
   output$dataEdadSexo <- renderDataTable({
-    datatable(grupos_etarios,
+    datatable(grupos_etarios(),
               extensions = 'Buttons', options = list(
                 dom = 'Bfrtip',
                 buttons = 
@@ -345,7 +377,7 @@ server <- function(input, output, session) {
   })
   
   output$dataCausas <- renderDataTable({
-    datatable(causas,
+    datatable(causas_plot(),
               extensions = 'Buttons', options = list(
                 dom = 'Bfrtip',
                 buttons = 
@@ -360,7 +392,7 @@ server <- function(input, output, session) {
   })
   
   output$dataCausasFecha <- renderDataTable({
-    datatable(causas_fecha,
+    datatable(causas_fecha_plot(),
               extensions = 'Buttons', options = list(
                 dom = 'Bfrtip',
                 buttons = 
@@ -375,7 +407,7 @@ server <- function(input, output, session) {
   })
   
   output$dataMortalidadFecha <- renderDataTable({
-    datatable(muertes_fecha,
+    datatable(muertes_fecha_plot(),
               extensions = 'Buttons', options = list(
                 dom = 'Bfrtip',
                 buttons = 
@@ -390,7 +422,7 @@ server <- function(input, output, session) {
   })
   
   output$dataDepartamentos <- renderDataTable({
-    datatable(muertes_departamentos,
+    datatable(departamentos_plot(),
               extensions = 'Buttons', options = list(
                 dom = 'Bfrtip',
                 buttons = 

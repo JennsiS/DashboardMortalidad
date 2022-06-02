@@ -16,6 +16,7 @@ library(stats)
 library(graphics)
 library(utils)
 library(datasets)
+library(epitools)
 
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 all_data <- read.csv(file = 'all_data.csv')
@@ -56,15 +57,15 @@ tasa_mortalidad <- (nrow(all_data)/p_total) * 1000
 muertes_fecha <- all_data
 muertes_fecha$epiWeek <- epiweek(muertes_fecha$FECHA)
 muertes_fecha$year <- year(muertes_fecha$FECHA)
-muertes_fecha$epiWeek <- paste0(year(muertes_fecha$FECHA)," - ", epiweek(muertes_fecha$FECHA))
+muertes_fecha$epiWeek <- paste0(year(muertes_fecha$FECHA),"-", as.week(muertes_fecha$FECHA)$week)
 
-muertes_fecha$fullDate <- str_c(muertes_fecha$year,"-",muertes_fecha$epiWeek)
+muertes_fecha$fullDate <- muertes_fecha$epiWeek
+#muertes_fecha$fullDate <- str_c(muertes_fecha$year,"-",muertes_fecha$epiWeek)
 muertes_fecha$n <- 1
 muertes_fecha <- muertes_fecha %>% group_by(fullDate) %>% summarise(n=sum(n))
 names (muertes_fecha)[1] = "Semana_epidemiologica"
 muertes_fecha$Year <- sub("\\-.*", "", muertes_fecha$Semana_epidemiologica)
 # muertes_fecha$Year <- sub(".*-\\.*", "", muertes_fecha$Semana_epidemiologica)
-#subset(muertes_fecha, muertes_fecha$Year %in% c("2021"))
 
 
 #Agrupacion de causas de muerte
@@ -90,49 +91,114 @@ causas_fecha$Year <- sub("\\-.*", "", causas_fecha$Semana_epidemiologica)
 
 
 #desconocidos <- grupos_etarios%>% filter(SEXO=="DESCONOCIDO")
-colors_grapo <- c('#348AA7', '#525174', '#5DD39E','#BCE784')
 
-#Agrupacion por departamento
-
-muertes_departamentos <- all_data
-muertes_departamentos$DEFUNCIONES <- 1
-muertes_departamentos <- muertes_departamentos %>% group_by(DEPARTAMENTO) %>% summarise(DEFUNCIONES=sum(DEFUNCIONES))
-muertes_departamentos$DEPARTAMENTO[muertes_departamentos$DEPARTAMENTO == "SOLOLÁ"] ="SOLOLA"
-muertes_departamentos <- merge(muertes_departamentos, poblaciones, by = "DEPARTAMENTO")
-muertes_departamentos$TASA <- (muertes_departamentos$DEFUNCIONES/muertes_departamentos$PROMEDIO) * 100000
-
+# input_years <- c("2015","2021")
+# 
+# data <- subset(all_data, year(all_data$FECHA) %in% input_years)
+# 
+# muertes_departamentos <- data
+# muertes_departamentos$Year <- year(data$FECHA)
+# selected_years <- unique(muertes_departamentos$Year)
+# 
+# muertes_departamentos$DEFUNCIONES <- 1
+# muertes_departamentos <- muertes_departamentos %>% group_by(DEPARTAMENTO) %>% summarise(DEFUNCIONES=sum(DEFUNCIONES))
+# muertes_departamentos$DEPARTAMENTO[muertes_departamentos$DEPARTAMENTO == "SOLOLÁ"] ="SOLOLA"
+# muertes_departamentos <- merge(muertes_departamentos, poblaciones, by = "DEPARTAMENTO")
+# muertes_departamentos$poblacion_total <- 0
+# 
+# 
+# for (column in names(muertes_departamentos)) {
+#   if(column %in% selected_years){
+#     poblacion_actual <- muertes_departamentos[length(names (muertes_departamentos))]
+#     total <- poblacion_actual + muertes_departamentos[column]
+#     muertes_departamentos[length(names (muertes_departamentos))] <- total
+# 
+#     print(muertes_departamentos$poblacion_total)
+#   }
+# }
+# names (muertes_departamentos)[length(names (muertes_departamentos))] = "poblacion_total"
+# 
+# muertes_departamentos$TASA <- (muertes_departamentos$DEFUNCIONES/muertes_departamentos$poblacion_total) * 100000
+# 
+# 
+# departamentos_locacion <- st_read("departamentos_gtm",layer="departamentos_gtm")
+# departamentos_locacion  <- st_transform(departamentos_locacion, "+proj=longlat +datum=WGS84")
+# departamentos_locacion$nombre <- as.character(departamentos_locacion$nombre)
+# 
+# names (muertes_departamentos)[1] = "nombre"
+# mortalidad_dep<- merge(muertes_departamentos, departamentos_locacion, by = "nombre")
+# mortalidad_dep$nombre <- as.character(mortalidad_dep$nombre)
+# mortalidad_dep <- st_as_sf(mortalidad_dep)
+# 
+# colors_grapo <- c('#348AA7', '#525174', '#5DD39E','#BCE784')
+# 
+# 
+# pal <- colorNumeric( colorRampPalette(brewer.pal(8,"Reds"))(5),
+#                      domain = c(0,max(mortalidad_dep$TASA)))
+# 
+# dep_labels <-sprintf(
+#   "<strong>%s</strong><br/>Tasa de mortalidad: %g",
+#   muertes_departamentos$nombre, muertes_departamentos$TASA
+# ) %>% lapply(htmltools::HTML)
 
 departamentos_locacion <- st_read("departamentos_gtm",layer="departamentos_gtm")
 departamentos_locacion  <- st_transform(departamentos_locacion, "+proj=longlat +datum=WGS84")
 departamentos_locacion$nombre <- as.character(departamentos_locacion$nombre)
 
-names (muertes_departamentos)[1] = "nombre"
-mortalidad_dep<- merge(muertes_departamentos, departamentos_locacion, by = "nombre")
-mortalidad_dep$nombre <- as.character(mortalidad_dep$nombre)
-mortalidad_dep <- st_as_sf(mortalidad_dep)
-
-pal <- colorNumeric( colorRampPalette(brewer.pal(8,"Reds"))(5),
-                     domain = c(0,max(mortalidad_dep$TASA)))
-
-dep_labels <-sprintf(
-  "<strong>%s</strong><br/>Tasa de mortalidad: %g",
-  muertes_departamentos$nombre, muertes_departamentos$TASA
-) %>% lapply(htmltools::HTML)
-
-#AgrupaciÃ³n por causas de muerte mÃ¡s comunes
-causas <- all_data
-causas$n <- 1
-causas <- causas %>% group_by(CAUSA1) %>% summarise(n=sum(n))
-causas <- subset(causas) %>% filter(CAUSA1!="DESCONOCIDA")
-
-causas <- head(arrange(causas,desc(n)), n = 10)
-names (causas)[1] = "Causas"
-
-
 ###### Funciones
 
+groupby_departamento <- function (data, poblaciones, departamentos_locacion){
+  #Agrupacion por departamento
+  
+  muertes_departamentos <- data
+  muertes_departamentos$Year <- year(data$FECHA)
+  selected_years <- unique(muertes_departamentos$Year)
+  
+  muertes_departamentos$DEFUNCIONES <- 1
+  muertes_departamentos <- muertes_departamentos %>% group_by(DEPARTAMENTO) %>% summarise(DEFUNCIONES=sum(DEFUNCIONES))
+  muertes_departamentos$DEPARTAMENTO[muertes_departamentos$DEPARTAMENTO == "SOLOLÁ"] ="SOLOLA"
+  muertes_departamentos <- merge(muertes_departamentos, poblaciones, by = "DEPARTAMENTO")
+  muertes_departamentos$poblacion_total <- 0
+  
+  
+  for (column in names(muertes_departamentos)) {
+    if(column %in% selected_years){
+      poblacion_actual <- muertes_departamentos[length(names (muertes_departamentos))]
+      total <- poblacion_actual + muertes_departamentos[column]
+      muertes_departamentos[length(names (muertes_departamentos))] <- total
+    }
+  }
+  names (muertes_departamentos)[length(names (muertes_departamentos))] = "poblacion_total"
+  
+  muertes_departamentos$TASA <- (muertes_departamentos$DEFUNCIONES/muertes_departamentos$poblacion_total) * 100000
+  
+  
+  # departamentos_locacion <- st_read("departamentos_gtm",layer="departamentos_gtm")
+  # departamentos_locacion  <- st_transform(departamentos_locacion, "+proj=longlat +datum=WGS84")
+  # departamentos_locacion$nombre <- as.character(departamentos_locacion$nombre)
+  
+  names (muertes_departamentos)[1] = "nombre"
+  mortalidad_dep<- merge(muertes_departamentos, departamentos_locacion, by = "nombre")
+  mortalidad_dep$nombre <- as.character(mortalidad_dep$nombre)
+  mortalidad_dep <- st_as_sf(mortalidad_dep)
+  
+  return(mortalidad_dep)
+  
+}
 
-groupby_edad_sexo <- function(data,sexo) {
+groupby_causas <- function (data){
+  causas <- data
+  causas$n <- 1
+  causas <- causas %>% group_by(CAUSA1) %>% summarise(n=sum(n))
+  causas <- subset(causas) %>% filter(CAUSA1!="DESCONOCIDA")
+  
+  causas <- head(arrange(causas,desc(n)), n = 10)
+  names (causas)[1] = "Causas"
+  return(causas)
+}
+
+
+groupby_edad_sexo <- function(data,opcion) {
   #Agrupacion por grupo etario y sexo
   grupos_etarios <- data
   #grupos_etarios <- reactive(data_filtrada)
@@ -168,18 +234,21 @@ groupby_edad_sexo <- function(data,sexo) {
   names(grupos_etarios)[1] = "Grupo_etario"
   names(grupos_etarios)[2] = "Sexo"
   
-  if (sexo =="h") {
+  if (opcion =="h") {
     hombres <- grupos_etarios%>% filter(Sexo=="M")
     names (hombres)[1] = "Grupo_etario"
     names (hombres)[2] = "Sexo"
     return(hombres)
     
-  } else if (sexo =="m"){
+  } else if (opcion =="m"){
     mujeres <- grupos_etarios%>% filter(Sexo=="F")
     names (mujeres)[1] = "Grupo_etario"
     names (mujeres)[2] = "Sexo"
     return(mujeres)
-    
+  
+  } else if (opcion=="edad"){
+    #grupos_etarios <- subset(grupos_etarios, select=-ID)
+    return(grupos_etarios)
   }
 
   
