@@ -122,7 +122,7 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                  
                          ),
                          tabItem("fechas",
-                                 h3("Número de muertes totales por semana epidemiológica, Guatemala, enero 2015 a enero 2021"),
+                                 h3("Número de muertes totales por semana epidemiológica, Guatemala"),
                                  fluidRow(
                                    column(width = 12, offset=0.5,
                                           tabBox(
@@ -132,7 +132,7 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                           )
                                    )
                                  ),
-                                 h3("Número de muertes totales de las causas de muerte más frecuentes por semana epidemiológica, Guatemala, enero 2015 a enero 2021"),
+                                 h3("Número de muertes totales de las causas de muerte más frecuentes por semana epidemiológica, Guatemala"),
                                  fluidRow(
                                    column(width = 12, offset=0.5,
                                           tabBox(
@@ -156,13 +156,37 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                           )
                                    )
                                  ),
-                                 fluidRow(h3("Número de muertes totales por causas más frecuentes de mortalidad, Guatemala, enero 2015 a enero 2021")),
+                                 fluidRow(
+                                   column(width =10,offset = 1,
+                                          h3("Número de muertes totales por causas más frecuentes de mortalidad, Guatemala, enero 2015 a enero 2021"))),
                                  fluidRow(
                                    column(width = 10, offset = 1,
                                           tabBox(
                                             selected = "Causas de mortalidad mas frecuentes", side = "left", height = "100%", width = "50%",
                                             tabPanel("Causas de mortalidad mas frecuentes", plotlyOutput(outputId = "mortalidad_causas")),
                                             tabPanel("Datos", dataTableOutput("dataCausas"))
+                                          )
+                                   )
+                                 ),
+                                 fluidRow(
+                                   column(width =10,offset = 1,
+                                          h3("Tasa de mortalidad por sexo, Guatemala"))),
+                                 fluidRow(
+                                   column(width = 10, offset = 1,
+                                          tabBox(
+                                            selected = "Tasa de mortalidad por sexo", side = "left", height = "100%", width = "50%",
+                                            tabPanel("Tasa de mortalidad por sexo", plotlyOutput(outputId = "mortalidad_sexo_tasa")),
+                                          )
+                                   )
+                                 ),
+                                 fluidRow(
+                                   column(width =10,offset = 1,
+                                          h3("Tasa mortalidad por grupo etario, Guatemala"))),
+                                 fluidRow(
+                                   column(width = 10, offset = 1,
+                                          tabBox(
+                                            selected = "Tasa de mortalidad por edad", side = "left", height = "100%", width = "50%",
+                                            tabPanel("Tasa de mortalidad por edad", plotlyOutput(outputId = "mortalidad_edad_tasa")),
                                           )
                                    )
                                  )
@@ -241,8 +265,17 @@ server <- function(input, output, session) {
     departamentos_data <-groupby_departamento(data_anios,poblaciones, departamentos_locacion)
   })
   
+  tasas_sexo_plot <- reactive ({
+    data_anios <- subset(all_data, year(all_data$FECHA) %in% input$years)
+    data_sexo_tasa <- groupby_sexo_tasa(data_anios,poblacionesSexo)
+  })
   
-
+  tasas_edad_plot <- reactive ({
+    data_anios <- subset(all_data, year(all_data$FECHA) %in% input$years)
+    data_edad_tasa <- groupby_edad_tasa(data_anios,poblacionesEdad)
+  })
+  
+  
   observe({
     updateCheckboxGroupInput(
       session, "years", choices=years_options,
@@ -290,6 +323,53 @@ server <- function(input, output, session) {
                gridcolor = 'ffff'
                )
              )
+  })
+  
+  output$mortalidad_sexo_tasa <- renderPlotly({
+    plot_ly(tasas_sexo_plot(),
+            x = ~SEXO,
+            y = ~TASA,
+            type = "bar",
+            color = ~SEXO
+    ) %>%
+      layout(xaxis = list(title = 'Sexo'),
+             yaxis = list(title = 'Tasa'),
+             plot_bgcolor='#e5ecf6',
+             xaxis = list(
+               zerolinecolor = '#ffff',
+               zerolinewidth = 2,
+               gridcolor = 'ffff'
+             ),
+             yaxis = list(
+               zerolinecolor = '#ffff',
+               zerolinewidth = 2,
+               gridcolor = 'ffff'
+             )
+      )
+  })
+  
+  output$mortalidad_edad_tasa <- renderPlotly({
+    plot_ly(tasas_edad_plot(),
+            x = ~Grupo_etario,
+            y = ~TASA,
+            type = "bar",
+            color = "#7D6B91"
+            #color = as.numeric(as.character(~TASA))
+    ) %>%
+      layout(xaxis = list(title = 'Grupo etario'),
+             yaxis = list(title = 'Tasa'),
+             plot_bgcolor='#e5ecf6',
+             xaxis = list(
+               zerolinecolor = '#ffff',
+               zerolinewidth = 2,
+               gridcolor = 'ffff'
+             ),
+             yaxis = list(
+               zerolinecolor = '#ffff',
+               zerolinewidth = 2,
+               gridcolor = 'ffff'
+             )
+      )
   })
   
   output$mortalidad_mapa <- renderLeaflet({
