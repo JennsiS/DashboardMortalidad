@@ -111,7 +111,7 @@ for (column in names(tasas_sexo)) {
 }
 names (tasas_sexo)[length(names (tasas_sexo))] = "poblacion_total"
 
-tasas_sexo$TASA <- (tasas_sexo$DEFUNCIONES/tasas_sexo$poblacion_total) * 100000
+tasas_sexo$TASA <- (tasas_sexo$DEFUNCIONES/tasas_sexo$poblacion_total) * 1000
 
 
 
@@ -168,7 +168,7 @@ groupby_edad_tasa <-function (data, poblacionesEdad){
   }
   names (tasas_edades)[length(names (tasas_edades))] = "poblacion_total"
   
-  tasas_edades$TASA <- (tasas_edades$DEFUNCIONES/tasas_edades$poblacion_total) * 100000
+  tasas_edades$TASA <- (tasas_edades$DEFUNCIONES/tasas_edades$poblacion_total) * 1000
   return(tasas_edades)
   
 }
@@ -192,7 +192,7 @@ groupby_sexo_tasa <-function (data, poblacionesSexo){
   }
   names (tasas_sexo)[length(names (tasas_sexo))] = "poblacion_total"
   
-  tasas_sexo$TASA <- (tasas_sexo$DEFUNCIONES/tasas_sexo$poblacion_total) * 100000
+  tasas_sexo$TASA <- (tasas_sexo$DEFUNCIONES/tasas_sexo$poblacion_total) * 1000
   return(tasas_sexo)
   
 }
@@ -220,7 +220,7 @@ groupby_departamento <- function (data, poblaciones, departamentos_locacion){
   }
   names (muertes_departamentos)[length(names (muertes_departamentos))] = "poblacion_total"
   
-  muertes_departamentos$TASA <- (muertes_departamentos$DEFUNCIONES/muertes_departamentos$poblacion_total) * 100000
+  muertes_departamentos$TASA <- (muertes_departamentos$DEFUNCIONES/muertes_departamentos$poblacion_total) * 1000
   
   names (muertes_departamentos)[1] = "nombre"
   mortalidad_dep<- merge(muertes_departamentos, departamentos_locacion, by = "nombre")

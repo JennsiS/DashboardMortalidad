@@ -20,6 +20,7 @@ library(graphics)
 library(utils)
 library(datasets)
 library(shinyBS)
+library(fontawesome)
 load(file = "preloadData.RData")
 
 # # Package names
@@ -105,11 +106,13 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                  br(),  
                                  fluidRow(
                                    # valueBox(nrow(all_data), "Defunciones registradas", icon = icon("fa-regular fa-display-medical")),
-                                   valueBox(format(nrow(all_data),big.mark=",",scientific=FALSE), valueBoxText),
-                                   valueBox(format(round(tasa_mortalidad, 2), nsmall = 2, id='tasa'), "Tasa bruta de mortalidad por 1,000 habitantes"),
-                                   shinyBS::bsTooltip('tasa', 'title', placement = "bottom", trigger = "hover", options = NULL),
-                                   valueBox(
-                                     tags$p(head(causas$Causas,1), style = "font-size: 80%;"), "Causa de muerte más frecuente")
+                                   valueBox(format(nrow(all_data),big.mark=",",scientific=FALSE), valueBoxText, icon = icon("list")),
+                                   popify(
+                                    valueBox(format(round(tasa_mortalidad, 2), nsmall = 2, id='tasa', icon=icon("people")), "Tasa bruta de mortalidad por 1,000 habitantes"),
+                                    "Cálculo tasa bruta de mortalidad", "El calculo de la tasa bruta de mortalidad se calcula con el total de defunciones registradas en los años registrados dividido por el total de la población correspondiente a estos mismos años y todo esto se multiplica por el amplificador que en este caso es 1,000 habitantes.", placement = "top", trigger = "hover"
+                                    ),
+                                    valueBox(
+                                     tags$p(head(causas$Causas,1), style = "font-size: 80%;"), "Causa de muerte más frecuente", icon = icon("wave-pulse") )
                                  ),
                                  
                                  fluidRow(
@@ -146,7 +149,7 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                          tabItem("categorias",
                                  fluidRow(
                                    column(width =10,offset = 1,
-                                          h3("Número de muertes totales por grupo etario y sexo, Guatemala, enero 2015 a enero 2021"))),
+                                          h3("Número de muertes totales por grupo etario y sexo, Guatemala,"))),
                                  fluidRow(
                                    column(width = 10, offset = 1,
                                           tabBox(
@@ -158,7 +161,7 @@ ui <- dashboardPage( title="Tablero de Mortalidad Guatemala",
                                  ),
                                  fluidRow(
                                    column(width =10,offset = 1,
-                                          h3("Número de muertes totales por causas más frecuentes de mortalidad, Guatemala, enero 2015 a enero 2021"))),
+                                          h3("Número de muertes totales por causas más frecuentes de mortalidad, Guatemala,"))),
                                  fluidRow(
                                    column(width = 10, offset = 1,
                                           tabBox(
@@ -265,6 +268,8 @@ server <- function(input, output, session) {
     departamentos_data <-groupby_departamento(data_anios,poblaciones, departamentos_locacion)
   })
   
+  
+  
   tasas_sexo_plot <- reactive ({
     data_anios <- subset(all_data, year(all_data$FECHA) %in% input$years)
     data_sexo_tasa <- groupby_sexo_tasa(data_anios,poblacionesSexo)
@@ -333,7 +338,7 @@ server <- function(input, output, session) {
             color = ~SEXO
     ) %>%
       layout(xaxis = list(title = 'Sexo'),
-             yaxis = list(title = 'Tasa'),
+             yaxis = list(title = 'Tasa de mortalidad por 1,000 habitantes'),
              plot_bgcolor='#e5ecf6',
              xaxis = list(
                zerolinecolor = '#ffff',
@@ -357,7 +362,7 @@ server <- function(input, output, session) {
             #color = as.numeric(as.character(~TASA))
     ) %>%
       layout(xaxis = list(title = 'Grupo etario'),
-             yaxis = list(title = 'Tasa'),
+             yaxis = list(title = 'Tasa de mortalidad por 1,000 habitantes'),
              plot_bgcolor='#e5ecf6',
              xaxis = list(
                zerolinecolor = '#ffff',
@@ -376,7 +381,7 @@ server <- function(input, output, session) {
     mapa_data <- departamentos_plot()
     pal <- colorNumeric( colorRampPalette(brewer.pal(8,"Reds"))(5), domain = c(0,max(mapa_data$TASA)))
     dep_labels <-sprintf(
-      "<strong>%s</strong><br/>Tasa de mortalidad: %g",
+      "<strong>%s</strong><br/>Tasa de mortalidad por 1,000 habitantes: %g",
       mapa_data$nombre, mapa_data$TASA
     ) %>% lapply(htmltools::HTML)
     
@@ -502,7 +507,12 @@ server <- function(input, output, session) {
   })
   
   output$dataDepartamentos <- renderDataTable({
-    datatable(departamentos_plot(),
+    departamentos_table_data <- departamentos_plot()
+    names (departamentos_table_data)[1] = "DEPARTAMENTO"
+    names (departamentos_table_data)[11] = "POBLACION_TOTAL"
+    departamentos_table_data <- departamentos_table_data[c("DEPARTAMENTO", "POBLACION_TOTAL", "DEFUNCIONES")]
+    departamentos_table_data$geometry <- NULL
+    datatable(departamentos_table_data,
               extensions = 'Buttons', options = list(
                 dom = 'Bfrtip',
                 buttons = 
